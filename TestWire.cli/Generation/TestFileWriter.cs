@@ -1,6 +1,6 @@
 namespace TestWire.cli.Generation;
 
-public class TestFileWriter
+public static class TestFileWriter
 {
     public static void Write(string outputPath, string content)
     {

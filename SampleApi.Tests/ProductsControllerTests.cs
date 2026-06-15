@@ -4,8 +4,6 @@ using System.Net.Http.Json;
 using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Mvc.Testing;
 using SampleApi;
-using SampleApi.DTOs;
-using SampleApi.Models;
 
 namespace SampleApi.Tests;
 
@@ -23,34 +21,34 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
-    public async Task GetAll_Returns200_WithIEnumerable_Product()
+    public async Task GetAll_Returns200_WithSystem_Collections_Generic_IEnumerable_SampleApi_Models_Product()
     {
         var response = await _client.GetAsync("api/products");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadFromJsonAsync<IEnumerable<Product>>();
+        var result = await response.Content.ReadFromJsonAsync<System.Collections.Generic.IEnumerable<SampleApi.Models.Product>>();
         Assert.NotNull(result);
     }
 
     [Fact]
-    public async Task GetById_Returns404_WithProduct()
+    public async Task GetById_Returns200_WithSampleApi_Models_Product()
     {
         var response = await _client.GetAsync("api/products/1");
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        var result = await response.Content.ReadFromJsonAsync<Product>();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<SampleApi.Models.Product>();
         Assert.NotNull(result);
     }
 
     [Fact]
-    public async Task GetDetails_Returns404_WithProductDetailsDto()
+    public async Task GetDetails_Returns200_WithSampleApi_DTOs_ProductDetailsDto()
     {
         var response = await _client.GetAsync("api/products/1/details");
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        var result = await response.Content.ReadFromJsonAsync<ProductDetailsDto>();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<SampleApi.DTOs.ProductDetailsDto>();
         Assert.NotNull(result);
     }
 
     [Fact]
-    public async Task Create_Returns201_WithProduct()
+    public async Task Create_Returns201_WithSampleApi_Models_Product()
     {
         var request = new SampleApi.DTOs.CreateProductDto
         {
@@ -61,7 +59,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         var response = await _authClient.PostAsJsonAsync("api/products", request);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var result = await response.Content.ReadFromJsonAsync<Product>();
+        var result = await response.Content.ReadFromJsonAsync<SampleApi.Models.Product>();
         Assert.NotNull(result);
     }
 
@@ -73,7 +71,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
-    public async Task Update_Returns400_WithProduct()
+    public async Task Update_Returns200_WithSampleApi_Models_Product()
     {
         var request = new SampleApi.DTOs.UpdateProductDto
         {
@@ -82,8 +80,8 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         };
 
         var response = await _authClient.PutAsJsonAsync("api/products/1", request);
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var result = await response.Content.ReadFromJsonAsync<Product>();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<SampleApi.Models.Product>();
         Assert.NotNull(result);
     }
 
@@ -95,10 +93,10 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
-    public async Task Delete_Returns404()
+    public async Task Delete_Returns204()
     {
         var response = await _authClient.DeleteAsync("api/products/1");
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
 
     [Fact]

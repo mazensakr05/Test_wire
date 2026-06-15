@@ -4,8 +4,6 @@ using System.Net.Http.Json;
 using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Mvc.Testing;
 using SampleApi;
-using SampleApi.DTOs;
-using SampleApi.Models;
 
 namespace SampleApi.Tests;
 
@@ -23,25 +21,25 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
-    public async Task Get_Returns200_WithIEnumerable_CategoryDto()
+    public async Task Get_Returns200_WithSystem_Collections_Generic_IEnumerable_SampleApi_DTOs_CategoryDto()
     {
         var response = await _client.GetAsync("api/categories");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadFromJsonAsync<IEnumerable<CategoryDto>>();
+        var result = await response.Content.ReadFromJsonAsync<System.Collections.Generic.IEnumerable<SampleApi.DTOs.CategoryDto>>();
         Assert.NotNull(result);
     }
 
     [Fact]
-    public async Task Get_Returns404_WithCategoryDto()
+    public async Task Get_Returns200_WithSampleApi_DTOs_CategoryDto()
     {
         var response = await _client.GetAsync("api/categories/1");
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        var result = await response.Content.ReadFromJsonAsync<CategoryDto>();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<SampleApi.DTOs.CategoryDto>();
         Assert.NotNull(result);
     }
 
     [Fact]
-    public async Task Post_Returns201_WithCategoryDto()
+    public async Task Post_Returns201_WithSampleApi_DTOs_CategoryDto()
     {
         var request = new SampleApi.DTOs.CreateCategoryDto
         {
@@ -51,7 +49,7 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
 
         var response = await _client.PostAsJsonAsync("api/categories", request);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var result = await response.Content.ReadFromJsonAsync<CategoryDto>();
+        var result = await response.Content.ReadFromJsonAsync<SampleApi.DTOs.CategoryDto>();
         Assert.NotNull(result);
     }
 

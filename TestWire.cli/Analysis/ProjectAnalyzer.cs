@@ -63,13 +63,15 @@ public class ProjectAnalyzer
                 if (primaryTree != null && classDecl.SyntaxTree != primaryTree)
                     continue;
 
-                var controllerInfo = new ControllerInfo
-                {
-                    ClassName = classSymbol.Name,
-                    Namespace = classSymbol.ContainingNamespace?.ToDisplayString() ?? string.Empty,
-                    BaseRoute = GetAttributeArgument(classSymbol, "Route") ?? string.Empty,
-                    Dependencies = GetConstructorDependencies(classSymbol),
-                };
+                var endpoints = new List<EndpointInfo>();
+                
+                var controllerInfo = new ControllerInfo(
+                    classSymbol.Name,
+                    classSymbol.ContainingNamespace?.ToDisplayString() ?? string.Empty,
+                    GetAttributeArgument(classSymbol, "Route") ?? string.Empty,
+                    endpoints,
+                    GetConstructorDependencies(classSymbol)
+                );
 
                 // Iterate methods via symbol — not syntax — for full attribute resolution
                 foreach (var member in classSymbol.GetMembers().OfType<IMethodSymbol>())
@@ -138,52 +140,51 @@ public class ProjectAnalyzer
                     var detectedStatusCode = await TryInferStatusCodeFromBody(member, compilation);
                     // --- Build Endpoint ---
 
-                    var endpointInfo = new EndpointInfo
-                    {
-                        MethodName = member.Name,
-                        HttpVerb = verb,
-                        Route = GetAttributeArgument(member, verb)
-                                            ?? GetAttributeArgument(member, "Route")
-                                            ?? string.Empty,
-                        IsAsync = member.IsAsync,
-                        HasAllowAnonymous = HasAttribute(member, "AllowAnonymous"),
-                        HasAuthorize = (HasAttribute(member, "Authorize") || HasAttribute(classSymbol, "Authorize"))
-                                            && !HasAttribute(member, "AllowAnonymous"),
-                        ReturnType = unwrapped,
-                        ReturnTypeKind = returnTypeKind,
-                        ProducesResponses = producesResponses,
-                        ExpectedStatusCode = detectedStatusCode ?? 200 , 
-                        Parameters = new List<ParameterDetail>()
-                    };
-
-                    // --- Build Parameters ---
+                    var parameters = new List<ParameterDetail>();
 
                     foreach (var param in member.Parameters)
                     {
                         var typeDisplay = GetTypeDisplayInfo(param.Type);
-                        var paramDetail = new ParameterDetail
-                        {
-                            Name = param.Name,
-                            Type = typeDisplay.Type,
-                            FullyQualifiedType = typeDisplay.FullyQualifiedType,
-                            IsFromBody = HasAttribute(param, "FromBody"),
-                            IsFromRoute = HasAttribute(param, "FromRoute"),
-                            IsFromQuery = HasAttribute(param, "FromQuery"),
-                            IsFromHeader = HasAttribute(param, "FromHeader")
-                        };
+                        var dtoProperties = new List<PropertyDetail>();
 
                         // If the parameter is a user-defined class (DTO, Command, etc.)
                         // read its public properties so the generator can build request objects
                         if (param.Type is INamedTypeSymbol paramTypeSymbol
                             && IsComplexUserType(param.Type))
                         {
-                            paramDetail.DtoProperties = ReadDtoProperties(paramTypeSymbol);
+                            dtoProperties = ReadDtoProperties(paramTypeSymbol);
                         }
 
-                        endpointInfo.Parameters.Add(paramDetail);
+                        var paramDetail = new ParameterDetail(
+                            param.Name,
+                            typeDisplay.Type,
+                            typeDisplay.FullyQualifiedType,
+                            HasAttribute(param, "FromBody"),
+                            HasAttribute(param, "FromRoute"),
+                            HasAttribute(param, "FromQuery"),
+                            HasAttribute(param, "FromHeader"),
+                            dtoProperties
+                        );
+
+                        parameters.Add(paramDetail);
                     }
 
-                    controllerInfo.Endpoints.Add(endpointInfo);
+                    var endpointInfo = new EndpointInfo(
+                        member.Name,
+                        verb,
+                        GetAttributeArgument(member, verb) ?? GetAttributeArgument(member, "Route") ?? string.Empty,
+                        unwrapped,
+                        returnTypeKind,
+                        false, // HasAmbiguousReturnType
+                        member.IsAsync,
+                        (HasAttribute(member, "Authorize") || HasAttribute(classSymbol, "Authorize")) && !HasAttribute(member, "AllowAnonymous"),
+                        HasAttribute(member, "AllowAnonymous"),
+                        detectedStatusCode ?? 200,
+                        parameters,
+                        producesResponses
+                    );
+
+                    endpoints.Add(endpointInfo);
                 }
 
                 controllers.Add(controllerInfo);
@@ -210,12 +211,11 @@ public class ProjectAnalyzer
                 && setMethod.DeclaredAccessibility == Accessibility.Public)
             {
                 var typeDisplay = GetTypeDisplayInfo(member.Type);
-                list.Add(new PropertyDetail
-                {
-                    Name = member.Name,
-                    Type = typeDisplay.Type,
-                    FullyQualifiedType = typeDisplay.FullyQualifiedType
-                });
+                list.Add(new PropertyDetail(
+                    member.Name,
+                    typeDisplay.Type,
+                    typeDisplay.FullyQualifiedType
+                ));
             }
         }
 
@@ -234,11 +234,10 @@ public class ProjectAnalyzer
         foreach (var parameter in primary.Parameters)
         {
             var typeDisplay = GetTypeDisplayInfo(parameter.Type);
-            dependencies.Add(new ConstructorDependency
-            {
-                Name = parameter.Name,
-                Type = typeDisplay.FullyQualifiedType
-            });
+            dependencies.Add(new ConstructorDependency(
+                parameter.Name,
+                typeDisplay.FullyQualifiedType
+            ));
         }
 
         return dependencies;
@@ -406,7 +405,7 @@ public class ProjectAnalyzer
         string[] wrappers = ["Task", "ActionResult", "IActionResult"];
 
         if (typeSymbol is not INamedTypeSymbol namedType)
-            return typeSymbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            return typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", string.Empty);
 
         if (wrappers.Contains(namedType.Name))
         {
@@ -417,7 +416,7 @@ public class ProjectAnalyzer
                 : string.Empty; // plain Task / IActionResult — no type info
         }
 
-        return namedType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        return namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", string.Empty);
     }
 
     private static (string Type, string FullyQualifiedType) GetTypeDisplayInfo(ITypeSymbol typeSymbol)
@@ -513,27 +512,25 @@ public class ProjectAnalyzer
             if (cleanName != "ProducesResponseType") continue;
             if (attr.ConstructorArguments.Length == 0) continue;
 
-            var detail = new ProducesResponseDetail();
-
             // Case 1: [ProducesResponseType(typeof(ProductDto), 200)]
             if (attr.ConstructorArguments[0].Kind == TypedConstantKind.Type)
             {
                 var typeSymbol = attr.ConstructorArguments[0].Value as ITypeSymbol;
-                detail.TypeName = typeSymbol?
-                    .ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                var typeName = typeSymbol?
+                    .ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)?.Replace("global::", string.Empty);
 
-                detail.StatusCode = attr.ConstructorArguments.Length > 1
+                var statusCode = attr.ConstructorArguments.Length > 1
                     ? (int)(attr.ConstructorArguments[1].Value ?? 200)
                     : 200;
+                    
+                result.Add(new ProducesResponseDetail(statusCode, typeName));
             }
             // Case 2: [ProducesResponseType(404)]
             else if (attr.ConstructorArguments[0].Kind == TypedConstantKind.Primitive)
             {
-                detail.StatusCode = (int)(attr.ConstructorArguments[0].Value ?? 200);
-                detail.TypeName = null;
+                var statusCode = (int)(attr.ConstructorArguments[0].Value ?? 200);
+                result.Add(new ProducesResponseDetail(statusCode, null));
             }
-
-            result.Add(detail);
         }
 
         return result;
@@ -591,7 +588,7 @@ public class ProjectAnalyzer
             if (typeInfo.Type is null) continue;
 
             return typeInfo.Type
-                .ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                .ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", string.Empty);
         }
 
         return null;
@@ -635,16 +632,25 @@ public class ProjectAnalyzer
         }
         else return null;
 
+        int? firstFound = null;
         foreach (var invocation in invocations)
         {
             var methodName = invocation.Expression is MemberAccessExpressionSyntax memberAccess
                 ? memberAccess.Name.Identifier.Text
                 : (invocation.Expression as IdentifierNameSyntax)?.Identifier.Text;
+            
             if (methodName != null && statusCodeMap.TryGetValue(methodName, out var code))
-                return code;
+            {
+                // Bugfix: Prioritise 2xx success codes for the "happy path" over error codes.
+                // If a controller does: `if (x == null) return NotFound(); return Ok(x);`
+                // we MUST pick Ok() to generate the passing test.
+                if (code is >= 200 and < 300)
+                    return code;
+                    
+                firstFound ??= code;
+            }
         }
         
-    
-    return null;
+    return firstFound;
 }
 }

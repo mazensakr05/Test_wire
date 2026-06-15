@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Headers;
+using System.Net.Http.Headers;
 using System.Text;
 using TestWire.cli.Analysis;
 
@@ -6,26 +6,25 @@ namespace TestWire.cli.Generation;
 
 public static class TestFileGenerator
 {
-    public static string Generate(ControllerInfo controller)
+    public static string Generate(ControllerInfo controller, GenerationContext context)
     {
         var sb = new StringBuilder();
 
-        // Extract base namespace — e.g. "MyApp.Controllers" → "MyApp"
-        var projectNamespace = controller.Namespace.Replace(".Controllers", "");
-
         // Usings for the generated test file
-        sb.AppendLine("using Xunit;");
+        if (context.Framework == TestFramework.NUnit)
+            sb.AppendLine("using NUnit.Framework;");
+        else
+            sb.AppendLine("using Xunit;");
+
         sb.AppendLine("using System.Net;");
         sb.AppendLine("using System.Net.Http.Json;");
         sb.AppendLine("using System.Net.Http.Headers;");
         sb.AppendLine("using Microsoft.AspNetCore.Mvc.Testing;");
-        sb.AppendLine($"using {projectNamespace};");
-        sb.AppendLine($"using {projectNamespace}.DTOs;");
-        sb.AppendLine($"using {projectNamespace}.Models;");
+        sb.AppendLine($"using {context.ProjectNamespace};");
         sb.AppendLine();
 
         // Namespace of the generated test file
-        sb.AppendLine($"namespace {projectNamespace}.Tests;");
+        sb.AppendLine($"namespace {context.ProjectNamespace}.Tests;");
         sb.AppendLine();
 
         // Class declaration — uses CustomWebApplicationFactory so fake auth is active

@@ -1,85 +1,79 @@
-using System.Text;
-
 namespace TestWire.cli.Generation;
 
 public static class AuthScaffoldGenerator
 {
     public static string GenerateTestAuthHandler(string projectNamespace)
     {
-        var sb = new StringBuilder();
+        return $$"""
+        using System.Security.Claims;
+        using System.Text.Encodings.Web;
+        using Microsoft.AspNetCore.Authentication;
+        using Microsoft.Extensions.Logging;
+        using Microsoft.Extensions.Options;
 
-        sb.AppendLine("using System.Security.Claims;");
-        sb.AppendLine("using System.Text.Encodings.Web;");
-        sb.AppendLine("using Microsoft.AspNetCore.Authentication;");
-        sb.AppendLine("using Microsoft.Extensions.Logging;");
-        sb.AppendLine("using Microsoft.Extensions.Options;");
-        sb.AppendLine();
-        sb.AppendLine($"namespace {projectNamespace}.Tests;");
-        sb.AppendLine();
-        sb.AppendLine("public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>");
-        sb.AppendLine("{");
-        sb.AppendLine("    public TestAuthHandler(");
-        sb.AppendLine("        IOptionsMonitor<AuthenticationSchemeOptions> options,");
-        sb.AppendLine("        ILoggerFactory logger,");
-        sb.AppendLine("        UrlEncoder encoder)");
-        sb.AppendLine("        : base(options, logger, encoder)");
-        sb.AppendLine("    {");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-        sb.AppendLine("    protected override Task<AuthenticateResult> HandleAuthenticateAsync()");
-        sb.AppendLine("    {");
-        sb.AppendLine("        if (!Request.Headers.ContainsKey(\"Authorization\"))");
-        sb.AppendLine("        {");
-        sb.AppendLine("            return Task.FromResult(AuthenticateResult.NoResult());");
-        sb.AppendLine("        }");
-        sb.AppendLine();
-        sb.AppendLine("        var claims = new[]");
-        sb.AppendLine("        {");
-        sb.AppendLine("            new Claim(ClaimTypes.Name, \"testwire-user\"),");
-        sb.AppendLine("            new Claim(ClaimTypes.NameIdentifier, \"1\"),");
-        sb.AppendLine("            new Claim(ClaimTypes.Role, \"Admin\"),");
-        sb.AppendLine("        };");
-        sb.AppendLine();
-        sb.AppendLine("        var identity  = new ClaimsIdentity(claims, \"Test\");");
-        sb.AppendLine("        var principal = new ClaimsPrincipal(identity);");
-        sb.AppendLine("        var ticket    = new AuthenticationTicket(principal, \"Test\");");
-        sb.AppendLine();
-        sb.AppendLine("        return Task.FromResult(AuthenticateResult.Success(ticket));");
-        sb.AppendLine("    }");
-        sb.AppendLine("}");
+        namespace {{projectNamespace}}.Tests;
 
-        return sb.ToString();
+        public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+        {
+            public TestAuthHandler(
+                IOptionsMonitor<AuthenticationSchemeOptions> options,
+                ILoggerFactory logger,
+                UrlEncoder encoder)
+                : base(options, logger, encoder)
+            {
+            }
+
+            protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+            {
+                if (!Request.Headers.ContainsKey("Authorization"))
+                {
+                    return Task.FromResult(AuthenticateResult.NoResult());
+                }
+
+                var claims = new[]
+                {
+                    new Claim(ClaimTypes.Name, "testwire-user"),
+                    new Claim(ClaimTypes.NameIdentifier, "1"),
+                    new Claim(ClaimTypes.Role, "Admin"),
+                };
+
+                var identity  = new ClaimsIdentity(claims, "Test");
+                var principal = new ClaimsPrincipal(identity);
+                var ticket    = new AuthenticationTicket(principal, "Test");
+
+                return Task.FromResult(AuthenticateResult.Success(ticket));
+            }
+        }
+        """;
     }
 
     public static string GenerateCustomWebApplicationFactory(string projectNamespace)
     {
-        var sb = new StringBuilder();
+        return $$"""
+        using Microsoft.AspNetCore.Authentication;
+        using Microsoft.AspNetCore.Hosting;
+        using Microsoft.AspNetCore.Mvc.Testing;
+        using Microsoft.AspNetCore.TestHost;
+        using Microsoft.Extensions.DependencyInjection;
+        using {{projectNamespace}};
 
-        sb.AppendLine("using Microsoft.AspNetCore.Authentication;");
-        sb.AppendLine("using Microsoft.AspNetCore.Hosting;");
-        sb.AppendLine("using Microsoft.AspNetCore.Mvc.Testing;");
-        sb.AppendLine("using Microsoft.AspNetCore.TestHost;");
-        sb.AppendLine("using Microsoft.Extensions.DependencyInjection;");
-        sb.AppendLine($"using {projectNamespace};");
-        sb.AppendLine();
-        sb.AppendLine($"namespace {projectNamespace}.Tests;");
-        sb.AppendLine();
-        sb.AppendLine("public class CustomWebApplicationFactory : WebApplicationFactory<Program>");
-        sb.AppendLine("{");
-        sb.AppendLine("    protected override void ConfigureWebHost(IWebHostBuilder builder)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        builder.ConfigureTestServices(services =>");
-        sb.AppendLine("        {");
-        sb.AppendLine("            services.AddAuthentication(options =>");
-        sb.AppendLine("            {");
-        sb.AppendLine("                options.DefaultAuthenticateScheme = \"Test\";");
-        sb.AppendLine("                options.DefaultChallengeScheme = \"Test\";");
-        sb.AppendLine("            })");
-        sb.AppendLine("            .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(\"Test\", _ => { });");
-        sb.AppendLine("        });");
-        sb.AppendLine("    }");
-        sb.AppendLine("}");
+        namespace {{projectNamespace}}.Tests;
 
-        return sb.ToString();
+        public class CustomWebApplicationFactory : WebApplicationFactory<Program>
+        {
+            protected override void ConfigureWebHost(IWebHostBuilder builder)
+            {
+                builder.ConfigureTestServices(services =>
+                {
+                    services.AddAuthentication(options =>
+                        {
+                            options.DefaultAuthenticateScheme = "Test";
+                            options.DefaultChallengeScheme = "Test";
+                        })
+                        .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
+                });
+            }
+        }
+        """;
     }
 }

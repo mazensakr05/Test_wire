@@ -17,40 +17,16 @@ public static class MethodBodyBuilder
         sb.AppendLine($"    public async Task {testName}()");
         sb.AppendLine("    {");
 
-        if (bodyParam is not null)
-        {
-            sb.AppendLine($"        var request = new {bodyParam.FullyQualifiedType}");
-            sb.AppendLine("        {");
-            foreach (var prop in bodyParam.DtoProperties)
-            {
-                sb.AppendLine($"            {prop.Name} = {GetTestValueForType(prop.Type)},");
-            }
-            sb.AppendLine("        };");
-            sb.AppendLine();
-        }
+        AppendRequestBody(sb, bodyParam);
 
-        var httpCall = endpoint.HttpVerb switch
-        {
-            "HttpGet" => $"await {client}.GetAsync(\"{url}\");",
-            "HttpDelete" => $"await {client}.DeleteAsync(\"{url}\");",
-            "HttpPost" => bodyParam is not null
-                                ? $"await {client}.PostAsJsonAsync(\"{url}\", request);"
-                                : $"await {client}.PostAsJsonAsync(\"{url}\", new {{ }});",
-            "HttpPut" => bodyParam is not null
-                                ? $"await {client}.PutAsJsonAsync(\"{url}\", request);"
-                                : $"await {client}.PutAsJsonAsync(\"{url}\", new {{ }});",
-            "HttpPatch" => bodyParam is not null
-                                ? $"await {client}.PatchAsJsonAsync(\"{url}\", request);"
-                                : $"await {client}.PatchAsJsonAsync(\"{url}\", new {{ }});",
-            _ => $"await {client}.GetAsync(\"{url}\");"
-        };
-
+        var httpCall = BuildHttpCall(endpoint.HttpVerb, url, client, bodyParam is not null);
         sb.AppendLine($"        var response = {httpCall}");
 
-        var expectedStatusCode = StatusCodeToHttpStatusCode(endpoint.ExpectedStatusCode);
+        var expectedStatusCode = TestValues.ToStatusCodeExpression(endpoint.ExpectedStatusCode);
         sb.AppendLine($"        Assert.Equal({expectedStatusCode}, response.StatusCode);");
 
-        if (!string.IsNullOrEmpty(endpoint.ReturnType))
+        // Bugfix: Do not attempt to deserialize response bodies on 204 or 4xx/5xx responses
+        if (!string.IsNullOrEmpty(endpoint.ReturnType) && TestValues.HasResponseBody(endpoint.ExpectedStatusCode))
         {
             sb.AppendLine($"        var result = await response.Content.ReadFromJsonAsync<{endpoint.ReturnType}>();");
             sb.AppendLine("        Assert.NotNull(result);");
@@ -65,7 +41,8 @@ public static class MethodBodyBuilder
     public static string BuildNotFoundTest(EndpointInfo endpoint, string baseRoute, string className)
     {
         var sb = new StringBuilder();
-        var notFoundUrl = BuildNotFoundUrl(endpoint, baseRoute, className);
+        // Delegate to RouteBuilder which uses the unified TestValues.AsNotFoundSegment
+        var notFoundUrl = RouteBuilder.BuildNotFound(baseRoute, className, endpoint.Route, endpoint.Parameters);
         var bodyParam = endpoint.Parameters.FirstOrDefault(p => p.IsFromBody);
         var client = endpoint.HasAuthorize ? "_authClient" : "_client";
 
@@ -73,30 +50,9 @@ public static class MethodBodyBuilder
         sb.AppendLine($"    public async Task {endpoint.MethodName}_Returns404_WhenNotFound()");
         sb.AppendLine("    {");
 
-        if (bodyParam is not null)
-        {
-            sb.AppendLine($"        var request = new {bodyParam.FullyQualifiedType}");
-            sb.AppendLine("        {");
-            foreach (var prop in bodyParam.DtoProperties)
-            {
-                sb.AppendLine($"            {prop.Name} = {GetTestValueForType(prop.Type)},");
-            }
-            sb.AppendLine("        };");
-            sb.AppendLine();
-        }
+        AppendRequestBody(sb, bodyParam);
 
-        var httpCall = endpoint.HttpVerb switch
-        {
-            "HttpPut" => bodyParam is not null
-                                ? $"await {client}.PutAsJsonAsync(\"{notFoundUrl}\", request);"
-                                : $"await {client}.PutAsJsonAsync(\"{notFoundUrl}\", new {{ }});",
-            "HttpPatch" => bodyParam is not null
-                                ? $"await {client}.PatchAsJsonAsync(\"{notFoundUrl}\", request);"
-                                : $"await {client}.PatchAsJsonAsync(\"{notFoundUrl}\", new {{ }});",
-            "HttpDelete" => $"await {client}.DeleteAsync(\"{notFoundUrl}\");",
-            _ => $"await {client}.GetAsync(\"{notFoundUrl}\");"
-        };
-
+        var httpCall = BuildHttpCall(endpoint.HttpVerb, notFoundUrl, client, bodyParam is not null);
         sb.AppendLine($"        var response = {httpCall}");
         sb.AppendLine("        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);");
         sb.AppendLine("    }");
@@ -105,36 +61,37 @@ public static class MethodBodyBuilder
         return sb.ToString();
     }
 
-    private static string BuildNotFoundUrl(EndpointInfo endpoint, string baseRoute, string className)
+    private static void AppendRequestBody(StringBuilder sb, ParameterDetail? bodyParam)
     {
-        const string suffix = "Controller";
-        var controllerName = className.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)
-            ? className[..^suffix.Length].ToLowerInvariant()
-            : className.ToLowerInvariant();
+        if (bodyParam is null) return;
 
-        var resolvedBase = baseRoute.Replace("[controller]", controllerName, StringComparison.OrdinalIgnoreCase);
+        sb.AppendLine($"        var request = new {bodyParam.FullyQualifiedType}");
+        sb.AppendLine("        {");
+        foreach (var prop in bodyParam.DtoProperties)
+        {
+            sb.AppendLine($"            {prop.Name} = {TestValues.AsExpression(prop.Type)},");
+        }
+        sb.AppendLine("        };");
+        sb.AppendLine();
+    }
 
-        var combined = string.IsNullOrWhiteSpace(endpoint.Route)
-            ? resolvedBase.Trim('/')
-            : $"{resolvedBase.Trim('/')}/{endpoint.Route.Trim('/')}";
-
-        return Regex.Replace(
-            combined,
-            @"\{([^}]+)\}",
-            match =>
-            {
-                var paramName = match.Groups[1].Value.Split(':')[0];
-                var param = endpoint.Parameters.FirstOrDefault(p =>
-                    p.IsFromRoute &&
-                    p.Name.Equals(paramName, StringComparison.OrdinalIgnoreCase));
-
-                return param?.Type.ToLowerInvariant() switch
-                {
-                    "guid" => Guid.NewGuid().ToString(),
-                    "string" => "nonexistent-xyz-404",
-                    _ => "99999"
-                };
-            });
+    private static string BuildHttpCall(string httpVerb, string url, string client, bool hasBody)
+    {
+        return httpVerb switch
+        {
+            "HttpGet"    => $"await {client}.GetAsync(\"{url}\");",
+            "HttpDelete" => $"await {client}.DeleteAsync(\"{url}\");",
+            "HttpPost"   => hasBody
+                                ? $"await {client}.PostAsJsonAsync(\"{url}\", request);"
+                                : $"await {client}.PostAsJsonAsync(\"{url}\", new {{ }});",
+            "HttpPut"    => hasBody
+                                ? $"await {client}.PutAsJsonAsync(\"{url}\", request);"
+                                : $"await {client}.PutAsJsonAsync(\"{url}\", new {{ }});",
+            "HttpPatch"  => hasBody
+                                ? $"await {client}.PatchAsJsonAsync(\"{url}\", request);"
+                                : $"await {client}.PatchAsJsonAsync(\"{url}\", new {{ }});",
+            _            => $"await {client}.GetAsync(\"{url}\");"
+        };
     }
 
     private static string BuildTestName(EndpointInfo endpoint)
@@ -150,28 +107,4 @@ public static class MethodBodyBuilder
 
     private static string CapitalizeFirst(string s) =>
         string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s[1..];
-
-    private static string GetTestValueForType(string type) => type.ToLowerInvariant() switch
-    {
-        "int" or "int32" or "int64" or "long" => "1",
-        "guid" => "Guid.NewGuid()",
-        "string" => "\"test\"",
-        "bool" or "boolean" => "true",
-        "datetime" or "dateonly" => "DateTime.UtcNow",
-        "decimal" => "1.0m",
-        "double" or "float" => "1.0",
-        _ => "null"
-    };
-
-    private static string StatusCodeToHttpStatusCode(int statusCode) => statusCode switch
-    {
-        200 => "HttpStatusCode.OK",
-        201 => "HttpStatusCode.Created",
-        202 => "HttpStatusCode.Accepted",
-        204 => "HttpStatusCode.NoContent",
-        400 => "HttpStatusCode.BadRequest",
-        404 => "HttpStatusCode.NotFound",
-        409 => "HttpStatusCode.Conflict",
-        _ => $"(HttpStatusCode){statusCode}"
-    };
 }
