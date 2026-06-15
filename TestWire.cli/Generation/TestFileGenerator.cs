@@ -20,8 +20,12 @@ public static class TestFileGenerator
         sb.AppendLine("using System.Net.Http.Json;");
         sb.AppendLine("using System.Net.Http.Headers;");
         sb.AppendLine("using Microsoft.AspNetCore.Mvc.Testing;");
+        // AFTER — emit the root namespace first (always needed for Program reference)
         sb.AppendLine($"using {context.ProjectNamespace};");
-        sb.AppendLine();
+
+        // Then emit every namespace Roslyn actually told us about
+        foreach (var ns in CollectRequiredNamespaces(controller, context.ProjectNamespace))
+            sb.AppendLine($"using {ns};"); sb.AppendLine();
 
         // Namespace of the generated test file
         sb.AppendLine($"namespace {context.ProjectNamespace}.Tests;");
@@ -109,5 +113,78 @@ public static class TestFileGenerator
 
         return supportedVerbs.Contains(endpoint.HttpVerb)
             && endpoint.Parameters.Any(p => p.IsFromRoute);
+    }
+
+    /// <summary>
+    /// Walks every endpoint in the controller and collects the namespaces
+    /// of every user-defined type that the generated test file will reference.
+    ///
+    /// Why do we need this?
+    /// The generated test constructs DTOs, reads response bodies, and asserts
+    /// on return types. Every one of those types must have a corresponding
+    /// "using" statement or the file won't compile.
+    ///
+    /// How does it work?
+    /// ProjectAnalyzer already asked Roslyn for the fully-qualified name of
+    /// every type (e.g. "MyApi.Features.Products.CreateProductDto").
+    /// We just strip the last segment to get the namespace:
+    ///   "MyApi.Features.Products.CreateProductDto" → "MyApi.Features.Products"
+    /// </summary>
+    private static IEnumerable<string> CollectRequiredNamespaces(
+        ControllerInfo controller,
+        string projectNamespace)
+    {
+        var namespaces = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var endpoint in controller.Endpoints)
+        {
+            // Source 1: the return type  e.g. "MyApi.Domain.Product"
+            TryAddNamespace(endpoint.ReturnType, namespaces);
+
+            foreach (var param in endpoint.Parameters)
+            {
+                // Source 2: the parameter type itself  e.g. "MyApi.Features.Products.CreateProductDto"
+                TryAddNamespace(param.FullyQualifiedType, namespaces);
+
+                // Source 3: each property inside the DTO
+                // e.g. a property of type "MyApi.Common.Money"
+                foreach (var prop in param.DtoProperties)
+                    TryAddNamespace(prop.FullyQualifiedType, namespaces);
+            }
+        }
+
+        return namespaces
+            .Where(ns =>
+                // Skip System.* and Microsoft.* — already covered by standard usings
+                !ns.StartsWith("System", StringComparison.Ordinal) &&
+                !ns.StartsWith("Microsoft", StringComparison.Ordinal) &&
+                // Skip the root project namespace — already emitted separately
+                ns != projectNamespace &&
+                // Skip anything that has no namespace (primitives, value types)
+                !string.IsNullOrWhiteSpace(ns))
+            .OrderBy(ns => ns); // deterministic output — same order every time
+    }
+
+    /// <summary>
+    /// Extracts the namespace from a fully-qualified type name and adds it
+    /// to the set. If the type has no dot (e.g. "int", "string") it has
+    /// no namespace — we skip it safely.
+    /// </summary>
+    private static void TryAddNamespace(string fullyQualifiedType, HashSet<string> namespaces)
+    {
+        if (string.IsNullOrWhiteSpace(fullyQualifiedType)) return;
+
+        // Strip generic arguments first — e.g. "List<MyApi.Models.Product>"
+        // We only need the outermost namespace here; generic type args
+        // are handled when their own endpoints/parameters are processed
+        var clean = fullyQualifiedType.Contains('<')
+            ? fullyQualifiedType.Substring(0, fullyQualifiedType.IndexOf('<'))
+            : fullyQualifiedType;
+
+        var lastDot = clean.LastIndexOf('.');
+        if (lastDot <= 0) return; // no dot = primitive or single-word type, skip
+
+        var ns = clean.Substring(0, lastDot);
+        namespaces.Add(ns);
     }
 }
