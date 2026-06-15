@@ -178,7 +178,7 @@ public class ProjectAnalyzer
                         false, // HasAmbiguousReturnType
                         member.IsAsync,
                         (HasAttribute(member, "Authorize") || HasAttribute(classSymbol, "Authorize")) && !HasAttribute(member, "AllowAnonymous"),
-                        HasAttribute(member, "AllowAnonymous"),
+                        HasAttribute(member, "AllowAnonymous") || HasAttribute(classSymbol , "AllowAnonymous"),
                         detectedStatusCode ?? 200,
                         parameters,
                         producesResponses
