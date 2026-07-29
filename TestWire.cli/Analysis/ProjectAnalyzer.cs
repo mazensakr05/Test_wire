@@ -431,7 +431,7 @@ public class ProjectAnalyzer
         return (type, fullyQualifiedType);
     }
 
-    private static bool HasAttribute(ISymbol symbol, string attributeName)
+    internal static bool HasAttribute(ISymbol symbol, string attributeName)
     {
         foreach (var attr in symbol.GetAttributes())
         {
@@ -449,7 +449,7 @@ public class ProjectAnalyzer
         return false;
     }
 
-    private static string? GetAttributeArgument(ISymbol symbol, string attributeName)
+    internal static string? GetAttributeArgument(ISymbol symbol, string attributeName)
     {
         foreach (var attr in symbol.GetAttributes())
         {
@@ -467,7 +467,7 @@ public class ProjectAnalyzer
         return null;
     }
 
-    private static string? GetHttpVerb(IMethodSymbol methodSymbol)
+    internal static string? GetHttpVerb(IMethodSymbol methodSymbol)
     {
         string[] verbs = ["HttpGet", "HttpPost", "HttpPut", "HttpDelete", "HttpPatch"];
 
@@ -480,7 +480,7 @@ public class ProjectAnalyzer
         return null;
     }
 
-    private static bool IsComplexUserType(ITypeSymbol typeSymbol)
+    internal static bool IsComplexUserType(ITypeSymbol typeSymbol)
     {
         // Primitives (int, string, bool etc.) — stop
         if (typeSymbol.SpecialType != SpecialType.None)
@@ -496,7 +496,7 @@ public class ProjectAnalyzer
                typeSymbol.TypeKind == TypeKind.Struct;
     }
 
-    private static List<ProducesResponseDetail> GetProducesResponseDetails(IMethodSymbol methodSymbol)
+    internal static List<ProducesResponseDetail> GetProducesResponseDetails(IMethodSymbol methodSymbol)
     {
         var result = new List<ProducesResponseDetail>();
 

@@ -33,6 +33,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="TestWire.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!--
       Roslyn 4.9+ introduced a BuildHost subprocess architecture that discovers MSBuild
       automatically from the installed .NET SDK without requiring manual MSBuildLocator
