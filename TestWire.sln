@@ -1,9 +1,10 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# 
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestWire.cli", "TestWire.cli\TestWire.cli.csproj", "{C0C1E4BA-B555-4A0A-ABEB-1EB1FDA3A392}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleApi", "SampleApi\SampleApi.csproj", "{09CDCFF3-CFD8-47F5-BB58-370B9BB3D9F6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestWire.Tests", "TestWire.Tests\TestWire.Tests.csproj", "{B3B39FD1-E7CF-4D28-AE56-E91EA2848D99}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +40,18 @@ Global
 		{09CDCFF3-CFD8-47F5-BB58-370B9BB3D9F6}.Release|x64.Build.0 = Release|Any CPU
 		{09CDCFF3-CFD8-47F5-BB58-370B9BB3D9F6}.Release|x86.ActiveCfg = Release|Any CPU
 		{09CDCFF3-CFD8-47F5-BB58-370B9BB3D9F6}.Release|x86.Build.0 = Release|Any CPU
+		{B3B39FD1-E7CF-4D28-AE56-E91EA2848D99}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B3B39FD1-E7CF-4D28-AE56-E91EA2848D99}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B3B39FD1-E7CF-4D28-AE56-E91EA2848D99}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B3B39FD1-E7CF-4D28-AE56-E91EA2848D99}.Debug|x64.Build.0 = Debug|Any CPU
+		{B3B39FD1-E7CF-4D28-AE56-E91EA2848D99}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B3B39FD1-E7CF-4D28-AE56-E91EA2848D99}.Debug|x86.Build.0 = Debug|Any CPU
+		{B3B39FD1-E7CF-4D28-AE56-E91EA2848D99}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B3B39FD1-E7CF-4D28-AE56-E91EA2848D99}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B3B39FD1-E7CF-4D28-AE56-E91EA2848D99}.Release|x64.ActiveCfg = Release|Any CPU
+		{B3B39FD1-E7CF-4D28-AE56-E91EA2848D99}.Release|x64.Build.0 = Release|Any CPU
+		{B3B39FD1-E7CF-4D28-AE56-E91EA2848D99}.Release|x86.ActiveCfg = Release|Any CPU
+		{B3B39FD1-E7CF-4D28-AE56-E91EA2848D99}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
