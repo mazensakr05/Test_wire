@@ -74,6 +74,17 @@ public static class TestFileGenerator
                     controller.BaseRoute,
                     controller.ClassName));
         }
+        var postEndpoint =  controller.Endpoints.FirstOrDefault(e => e.HttpVerb == "HttpPost");
+        var getByIdEndpoint = controller.Endpoints.FirstOrDefault(e =>
+            e.HttpVerb == "HttpGet" &&
+            e.Parameters.Count(p => p.IsFromRoute) == 1 &&
+            e.ReturnType == postEndpoint?.ReturnType);
+
+        // null check 
+        if (postEndpoint is not null && getByIdEndpoint is not null)
+        {
+            sb.Append(BuildCreateThenReadTest(postEndpoint, getByIdEndpoint, controller));
+        }
 
         sb.AppendLine("}");
 
@@ -187,4 +198,59 @@ public static class TestFileGenerator
         var ns = clean.Substring(0, lastDot);
         namespaces.Add(ns);
     }
+
+
+    private static string BuildCreateThenReadTest(
+    EndpointInfo postEndpoint,
+    EndpointInfo getByIdEndpoint,
+    ControllerInfo controller)
+    {
+        var sb = new StringBuilder();
+        var client = postEndpoint.HasAuthorize ? "_authClient" : "_client";
+
+        var postUrl = RouteBuilder.Build(
+            controller.BaseRoute, controller.ClassName, postEndpoint.Route, postEndpoint.Parameters);
+
+        var bodyParam = postEndpoint.Parameters.FirstOrDefault(p => p.IsFromBody);
+
+        sb.AppendLine("    [Fact]");
+        sb.AppendLine("    public async Task CreateThenGet_ReturnsCreatedResource()");
+        sb.AppendLine("    {");
+
+        if (bodyParam is not null)
+        {
+            sb.AppendLine($"        var request = new {bodyParam.FullyQualifiedType}");
+            sb.AppendLine("        {");
+            foreach (var prop in bodyParam.DtoProperties)
+            {
+                sb.AppendLine($"            {prop.Name} = {TestValues.AsExpression(prop.Type)},");
+            }
+            sb.AppendLine("        };");
+            sb.AppendLine();
+            sb.AppendLine($"        var createResponse = await {client}.PostAsJsonAsync(\"{postUrl}\", request);");
+        }
+        else
+        {
+            sb.AppendLine($"        var createResponse = await {client}.PostAsJsonAsync(\"{postUrl}\", new {{ }});");
+        }
+
+        sb.AppendLine("        createResponse.EnsureSuccessStatusCode();");
+        sb.AppendLine($"        var created = await createResponse.Content.ReadFromJsonAsync<{postEndpoint.ReturnType}>();");
+        sb.AppendLine();
+
+        var getUrl = RouteBuilder.Build(
+            controller.BaseRoute, controller.ClassName, getByIdEndpoint.Route, getByIdEndpoint.Parameters);
+
+        sb.AppendLine($"        var getResponse = await {client}.GetAsync(\"{getUrl}\");");
+        sb.AppendLine("        getResponse.EnsureSuccessStatusCode();");
+        sb.AppendLine($"        var retrieved = await getResponse.Content.ReadFromJsonAsync<{getByIdEndpoint.ReturnType}>();");
+        sb.AppendLine();
+        sb.AppendLine("        Assert.NotNull(retrieved);");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+
+        return sb.ToString();
+    }
 }
+
+
