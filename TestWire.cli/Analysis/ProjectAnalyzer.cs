@@ -139,7 +139,24 @@ public class ProjectAnalyzer
                     // Detect the actual status code from return statements (Ok→200, CreatedAtAction→201 etc.)
                     var detectedStatusCode = await TryInferStatusCodeFromBody(member, compilation);
                     // --- Build Endpoint ---
+                    // Extract route template now so IsImplicitRouteParam can use it during parameter analysis
+                    var methodRoute = GetAttributeArgument(member, verb)
+                                   ?? GetAttributeArgument(member, "Route")
+                                   ?? string.Empty;
 
+                    // Resolve the return type's symbol so we can read its actual properties —
+                    // same treatment request DTOs already get. This fixes the Create-then-Read
+                    // hardcoded "created.Id" assumption (#67 Part 2).
+                    var returnTypeProperties = new List<PropertyDetail>();
+
+                    if (!string.IsNullOrEmpty(unwrapped))
+                    {
+                        var returnTypeSymbol = compilation.GetTypeByMetadataName(unwrapped);
+                        if (returnTypeSymbol != null && IsComplexUserType(returnTypeSymbol))
+                        {
+                            returnTypeProperties = ReadDtoProperties(returnTypeSymbol);
+                        }
+                    }
                     var parameters = new List<ParameterDetail>();
 
                     foreach (var param in member.Parameters)
@@ -160,7 +177,7 @@ public class ProjectAnalyzer
                             typeDisplay.Type,
                             typeDisplay.FullyQualifiedType,
                             HasAttribute(param, "FromBody"),
-                            HasAttribute(param, "FromRoute"),
+                            HasAttribute(param, "FromRoute") || IsImplicitRouteParam(methodRoute,param.Name),
                             HasAttribute(param, "FromQuery"),
                             HasAttribute(param, "FromHeader"),
                             dtoProperties
@@ -172,7 +189,7 @@ public class ProjectAnalyzer
                     var endpointInfo = new EndpointInfo(
                         member.Name,
                         verb,
-                        GetAttributeArgument(member, verb) ?? GetAttributeArgument(member, "Route") ?? string.Empty,
+                        methodRoute,
                         unwrapped,
                         returnTypeKind,
                         false, // HasAmbiguousReturnType
@@ -181,8 +198,9 @@ public class ProjectAnalyzer
                         HasAttribute(member, "AllowAnonymous") || HasAttribute(classSymbol , "AllowAnonymous"),
                         detectedStatusCode ?? 200,
                         parameters,
-                        producesResponses
-                    );
+                        producesResponses,
+                        returnTypeProperties
+                        );
 
                     endpoints.Add(endpointInfo);
                 }
@@ -534,6 +552,31 @@ public class ProjectAnalyzer
         }
 
         return result;
+    }
+
+    internal static bool IsImplicitRouteParam(string routeTemplate, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(routeTemplate)) return false;
+
+        // Extract every {placeholder} from the route template
+        // e.g. "api/products/{id:int}/reviews/{reviewId}" → ["id:int", "reviewId"]
+        var matches = System.Text.RegularExpressions.Regex.Matches(
+            routeTemplate, @"\{([^}]+)\}");
+
+        foreach (System.Text.RegularExpressions.Match match in matches)
+        {
+            // Strip constraint suffix — "id:int" → "id", "id:guid" → "id"
+            var placeholder = match.Groups[1].Value;
+            var colonIndex = placeholder.IndexOf(':');
+            var cleanName = colonIndex >= 0
+                ? placeholder.Substring(0, colonIndex)
+                : placeholder;
+
+            if (string.Equals(cleanName, parameterName, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     private static async Task<string?> TryInferReturnTypeFromBody(
