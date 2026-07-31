@@ -74,14 +74,17 @@ public static class TestFileGenerator
                     controller.BaseRoute,
                     controller.ClassName));
         }
-        var postEndpoint =  controller.Endpoints.FirstOrDefault(e => e.HttpVerb == "HttpPost");
+        var postEndpoint = controller.Endpoints.FirstOrDefault(e => e.HttpVerb == "HttpPost");
         var getByIdEndpoint = controller.Endpoints.FirstOrDefault(e =>
             e.HttpVerb == "HttpGet" &&
             e.Parameters.Count(p => p.IsFromRoute) == 1 &&
+            !string.IsNullOrWhiteSpace(e.ReturnType) &&
             e.ReturnType == postEndpoint?.ReturnType);
 
-        // null check 
-        if (postEndpoint is not null && getByIdEndpoint is not null)
+        // null check + guard against empty ReturnType (avoids ReadFromJsonAsync<>() )
+        if (postEndpoint is not null
+            && getByIdEndpoint is not null
+            && !string.IsNullOrWhiteSpace(postEndpoint.ReturnType))
         {
             sb.Append(BuildCreateThenReadTest(postEndpoint, getByIdEndpoint, controller));
         }
@@ -206,8 +209,7 @@ public static class TestFileGenerator
     ControllerInfo controller)
     {
         var sb = new StringBuilder();
-        var client = postEndpoint.HasAuthorize ? "_authClient" : "_client";
-
+        var client = (postEndpoint.HasAuthorize || getByIdEndpoint.HasAuthorize) ? "_authClient" : "_client";
         var postUrl = RouteBuilder.Build(
             controller.BaseRoute, controller.ClassName, postEndpoint.Route, postEndpoint.Parameters);
 
@@ -238,10 +240,11 @@ public static class TestFileGenerator
         sb.AppendLine($"        var created = await createResponse.Content.ReadFromJsonAsync<{postEndpoint.ReturnType}>();");
         sb.AppendLine();
 
-        var getUrl = RouteBuilder.Build(
-            controller.BaseRoute, controller.ClassName, getByIdEndpoint.Route, getByIdEndpoint.Parameters);
+        var baseGetRoute = controller.BaseRoute.Replace("[controller]",
+            controller.ClassName.Replace("Controller", "").ToLowerInvariant());
 
-        sb.AppendLine($"        var getResponse = await {client}.GetAsync(\"{getUrl}\");");
+
+        sb.AppendLine($"        var getResponse = await {client}.GetAsync($\"{baseGetRoute}/{{created.Id}}\");");
         sb.AppendLine("        getResponse.EnsureSuccessStatusCode();");
         sb.AppendLine($"        var retrieved = await getResponse.Content.ReadFromJsonAsync<{getByIdEndpoint.ReturnType}>();");
         sb.AppendLine();
