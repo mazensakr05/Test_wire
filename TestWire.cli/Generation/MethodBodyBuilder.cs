@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.RegularExpressions;
 using TestWire.cli.Analysis;
 
@@ -69,7 +69,8 @@ public static class MethodBodyBuilder
         sb.AppendLine("        {");
         foreach (var prop in bodyParam.DtoProperties)
         {
-            sb.AppendLine($"            {prop.Name} = {TestValues.AsExpression(prop.Type)},");
+            var valueExpression = BuildValidValueExpression(prop);
+            sb.AppendLine($"            {prop.Name} = {valueExpression},");
         }
         sb.AppendLine("        };");
         sb.AppendLine();
@@ -107,4 +108,56 @@ public static class MethodBodyBuilder
 
     private static string CapitalizeFirst(string s) =>
         string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s[1..];
+
+    private static string BuildValidValueExpression(PropertyDetail prop)
+    {
+        var type = prop.Type;
+
+        var required = prop.ValidationAttributes.Any(a => a.Name == "Required");
+        var range = prop.ValidationAttributes.FirstOrDefault(a => a.Name == "Range");
+        var maxLength = prop.ValidationAttributes.FirstOrDefault(a => a.Name == "MaxLength");
+
+        if (range is not null && (type == "int" || type == "decimal" || type == "double"))
+        {
+            if (range.Arguments.Count >= 2 &&
+                decimal.TryParse(range.Arguments[0], out var min) &&
+                decimal.TryParse(range.Arguments[1], out var max))
+            {
+                var value = (min + max) / 2;
+                return type switch
+                {
+                    "int" => ((int)value).ToString(),
+                    "double" => value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    "decimal" => value.ToString(System.Globalization.CultureInfo.InvariantCulture) + "m",
+                    _ => TestValues.AsExpression(type)
+                };
+            }
+        }
+
+        if (type == "string")
+        {
+            var baseValue = "\"test\"";
+
+            if (maxLength is not null &&
+                maxLength.Arguments.Count >= 1 &&
+                int.TryParse(maxLength.Arguments[0], out var maxLen))
+            {
+                var length = Math.Min(maxLen, 10);
+                var content = new string('a', Math.Max(length, 1));
+                return $"\"{content}\"";
+            }
+
+            if (required)
+                return baseValue;
+
+            return baseValue;
+        }
+
+        return TestValues.AsExpression(type);
+    }
 }
+
+
+
+
+
