@@ -5,7 +5,8 @@ public sealed record ControllerInfo(
     string Namespace,
     string BaseRoute,
     List<EndpointInfo> Endpoints,
-    List<ConstructorDependency> Dependencies
+    List<ConstructorDependency> Dependencies,
+    bool HasApiControllerAttribute
 )
 {
     // E.g. "MyApp.Controllers" -> "MyApp"

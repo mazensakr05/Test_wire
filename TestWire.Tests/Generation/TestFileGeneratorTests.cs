@@ -76,7 +76,9 @@ public class TestFileGeneratorTests
             Namespace: "SampleApi.Controllers",
             BaseRoute: "api/[controller]",
             Endpoints: endpoints,
-            Dependencies: new List<ConstructorDependency>()
+            Dependencies: new List<ConstructorDependency>(),
+                HasApiControllerAttribute: false
+
         );
     }
 
@@ -157,7 +159,9 @@ public class TestFileGeneratorTests
             Namespace: "SampleApi.Controllers",
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { getByIdEndpoint },
-            Dependencies: new List<ConstructorDependency>()
+            Dependencies: new List<ConstructorDependency>(),
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -222,7 +226,9 @@ public class TestFileGeneratorTests
             Namespace: "SampleApi.Controllers",
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { postEndpoint, getByIdEndpoint },
-            Dependencies: new List<ConstructorDependency>()
+            Dependencies: new List<ConstructorDependency>(),
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -288,7 +294,9 @@ public class TestFileGeneratorTests
             Namespace: "SampleApi.Controllers",
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { postEndpoint, getByIdEndpoint },
-            Dependencies: new List<ConstructorDependency>()
+            Dependencies: new List<ConstructorDependency>(),
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -361,7 +369,9 @@ public class TestFileGeneratorTests
             Namespace: "SampleApi.Controllers",
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { postEndpoint, getReviewEndpoint },
-            Dependencies: new List<ConstructorDependency>()
+            Dependencies: new List<ConstructorDependency>(),
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -409,7 +419,9 @@ public class TestFileGeneratorTests
             ClassName: "ProductsController", Namespace: "SampleApi.Controllers",
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { postEndpoint, getByIdEndpoint },
-            Dependencies: new List<ConstructorDependency>()
+            Dependencies: new List<ConstructorDependency>(),
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -459,7 +471,9 @@ public class TestFileGeneratorTests
             ClassName: "ProductsController", Namespace: "SampleApi.Controllers",
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { postEndpoint, getByIdEndpoint },
-            Dependencies: new List<ConstructorDependency>()
+            Dependencies: new List<ConstructorDependency>(),
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -523,7 +537,9 @@ public class TestFileGeneratorTests
             Namespace: "SampleApi.Controllers",
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { createProduct, getProduct, createCategory, getCategory },
-            Dependencies: new List<ConstructorDependency>()
+            Dependencies: new List<ConstructorDependency>(),
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -593,7 +609,9 @@ public class TestFileGeneratorTests
             Namespace: "SampleApi.Controllers",
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { postEndpoint, getByIdEndpoint },
-            Dependencies: new List<ConstructorDependency>()
+            Dependencies: new List<ConstructorDependency>(),
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -634,7 +652,7 @@ public class TestFileGeneratorTests
             ProducesResponses: new List<ProducesResponseDetail>()
         );
 
-        var controller = new ControllerInfo("ProductsController", "SampleApi.Controllers", "api/[controller]", new List<EndpointInfo> { postEndpoint, getByIdEndpoint }, new());
+        var controller = new ControllerInfo("ProductsController", "SampleApi.Controllers", "api/[controller]", new List<EndpointInfo> { postEndpoint, getByIdEndpoint }, new(),HasApiControllerAttribute:false);
         var result = TestFileGenerator.Generate(controller, BuildContext());
 
         result.Should().Contain($"created.{propertyName}");
@@ -664,9 +682,115 @@ public class TestFileGeneratorTests
             ProducesResponses: new List<ProducesResponseDetail>()
         );
 
-        var controller = new ControllerInfo("ProductsController", "SampleApi.Controllers", "api/[controller]", new List<EndpointInfo> { postEndpoint, getByIdEndpoint }, new());
+        var controller = new ControllerInfo("ProductsController", "SampleApi.Controllers", "api/[controller]", new List<EndpointInfo> { postEndpoint, getByIdEndpoint }, new(), HasApiControllerAttribute: false);
         var result = TestFileGenerator.Generate(controller, BuildContext());
 
         result.Should().NotContain("CreateThenGet_ReturnsCreatedResource");
+    }
+
+    [Fact]
+    public void Generate_ShouldGenerate400Test_WithoutWarning_WhenControllerHasApiControllerAttribute()
+    {
+        // Arrange
+        var postEndpoint = new EndpointInfo(
+            MethodName: "Create", HttpVerb: "HttpPost", Route: "",
+            ReturnType: "ProductDto", ReturnTypeKind: ReturnTypeKind.ActionResultOfT,
+            HasAmbiguousReturnType: false, IsAsync: true, HasAuthorize: false, HasAllowAnonymous: false,
+            ExpectedStatusCode: 200,
+            Parameters: new List<ParameterDetail>
+            {
+                new ParameterDetail("dto", "CreateProductDto", "SampleApi.DTOs.CreateProductDto",
+                    true, false, false, false, new())
+            },
+            ProducesResponses: new List<ProducesResponseDetail>()
+        );
+
+        var controller = new ControllerInfo(
+            ClassName: "ProductsController", Namespace: "SampleApi.Controllers",
+            BaseRoute: "api/[controller]", Endpoints: new List<EndpointInfo> { postEndpoint },
+            Dependencies: new List<ConstructorDependency>(),
+            HasApiControllerAttribute: true
+        );
+
+        var context = BuildContext();
+
+        // Act
+        var result = TestFileGenerator.Generate(controller, context);
+
+        // Assert
+        result.Should().Contain("public async Task Create_Returns400_WhenModelStateIsInvalid()");
+        result.Should().Contain("Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);");
+        result.Should().NotContain("Note: this test requires [ApiController]");
+    }
+
+    [Fact]
+    public void Generate_ShouldGenerate400Test_WithoutWarning_WhenExpectedStatusCodeIs400()
+    {
+        // Arrange
+        var postEndpoint = new EndpointInfo(
+            MethodName: "Create", HttpVerb: "HttpPost", Route: "",
+            ReturnType: "ProductDto", ReturnTypeKind: ReturnTypeKind.ActionResultOfT,
+            HasAmbiguousReturnType: false, IsAsync: true, HasAuthorize: false, HasAllowAnonymous: false,
+            ExpectedStatusCode: 400,
+            Parameters: new List<ParameterDetail>
+            {
+                new ParameterDetail("dto", "CreateProductDto", "SampleApi.DTOs.CreateProductDto",
+                    true, false, false, false, new())
+            },
+            ProducesResponses: new List<ProducesResponseDetail>()
+        );
+
+        var controller = new ControllerInfo(
+            ClassName: "ProductsController", Namespace: "SampleApi.Controllers",
+            BaseRoute: "api/[controller]", Endpoints: new List<EndpointInfo> { postEndpoint },
+            Dependencies: new List<ConstructorDependency>(),
+            HasApiControllerAttribute: false
+        );
+
+        var context = BuildContext();
+
+        // Act
+        var result = TestFileGenerator.Generate(controller, context);
+
+        // Assert
+        result.Should().Contain("public async Task Create_Returns400_WhenModelStateIsInvalid()");
+        result.Should().Contain("Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);");
+        result.Should().NotContain("Note: this test requires [ApiController]");
+    }
+
+    [Fact]
+    public void Generate_ShouldGenerate400Test_WithWarning_WhenNoApiControllerAndNot400()
+    {
+        // Arrange
+        var postEndpoint = new EndpointInfo(
+            MethodName: "Create", HttpVerb: "HttpPost", Route: "",
+            ReturnType: "ProductDto", ReturnTypeKind: ReturnTypeKind.ActionResultOfT,
+            HasAmbiguousReturnType: false, IsAsync: true, HasAuthorize: false, HasAllowAnonymous: false,
+            ExpectedStatusCode: 200,
+            Parameters: new List<ParameterDetail>
+            {
+                new ParameterDetail("dto", "CreateProductDto", "SampleApi.DTOs.CreateProductDto",
+                    true, false, false, false, new())
+            },
+            ProducesResponses: new List<ProducesResponseDetail>()
+        );
+
+        var controller = new ControllerInfo(
+            ClassName: "ProductsController", Namespace: "SampleApi.Controllers",
+            BaseRoute: "api/[controller]", Endpoints: new List<EndpointInfo> { postEndpoint },
+            Dependencies: new List<ConstructorDependency>(),
+            HasApiControllerAttribute: false
+        );
+
+        var context = BuildContext();
+
+        // Act
+        var result = TestFileGenerator.Generate(controller, context);
+
+        // Assert
+        result.Should().Contain("public async Task Create_Returns400_WhenModelStateIsInvalid()");
+        result.Should().Contain("Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);");
+        result.Should().Contain("Note: this test requires [ApiController]");
+        result.Should().Contain("If this test fails with 200, add [ApiController] to your controller class.");
     }
 }

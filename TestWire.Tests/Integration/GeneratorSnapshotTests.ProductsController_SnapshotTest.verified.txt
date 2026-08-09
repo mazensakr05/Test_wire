@@ -87,6 +87,13 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
+    public async Task Create_Returns400_WhenModelStateIsInvalid()
+    {
+        var response = await _authClient.PostAsJsonAsync("api/products", new { });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Update_Returns200_WithSampleApi_Models_Product()
     {
         var request = new SampleApi.DTOs.UpdateProductDto
@@ -106,6 +113,13 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     {
         var response = await _client.PutAsJsonAsync("api/products/1", new { });
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_Returns400_WhenModelStateIsInvalid()
+    {
+        var response = await _authClient.PutAsJsonAsync("api/products/1", new { });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]

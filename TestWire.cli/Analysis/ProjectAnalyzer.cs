@@ -64,13 +64,14 @@ public class ProjectAnalyzer
                     continue;
 
                 var endpoints = new List<EndpointInfo>();
-                
+                var hasApiController = HasAttribute(classSymbol, "ApiController") || HasApiControllerOnBase(classSymbol);
                 var controllerInfo = new ControllerInfo(
                     classSymbol.Name,
                     classSymbol.ContainingNamespace?.ToDisplayString() ?? string.Empty,
                     GetAttributeArgument(classSymbol, "Route") ?? string.Empty,
                     endpoints,
-                    GetConstructorDependencies(classSymbol)
+                    GetConstructorDependencies(classSymbol),
+                    hasApiController
                 );
 
                 // Iterate methods via symbol — not syntax — for full attribute resolution
@@ -693,4 +694,17 @@ public class ProjectAnalyzer
         
     return firstFound;
 }
+    internal static bool HasApiControllerOnBase(INamedTypeSymbol classSymbol)
+    {
+        var baseType = classSymbol.BaseType;
+        while (baseType != null)
+        {
+            if (HasAttribute(baseType, "ApiController"))
+                return true;
+            baseType = baseType.BaseType;
+        }
+        return false;
+    }
+
+
 }
