@@ -62,6 +62,13 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
+    public async Task Post_Returns400_WhenModelStateIsInvalid()
+    {
+        var response = await _client.PostAsJsonAsync("api/categories", new { });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task CreateThenGet_ReturnsCreatedResource()
     {
         var request = new SampleApi.DTOs.CreateCategoryDto

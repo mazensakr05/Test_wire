@@ -67,6 +67,10 @@ public static class TestFileGenerator
             if (endpoint.HasAuthorize)
                 sb.Append(BuildUnauthorizedTest(endpoint, url));
 
+            // 400 test  for invalid model state
+            if (ShouldGenerate400Test(controller, endpoint))
+                sb.Append(BuildBadRequestTest(controller, endpoint, url));
+
             // 404 test — uses _authClient if [Authorize] is present
             if (ShouldGenerate404Test(endpoint))
                 sb.Append(MethodBodyBuilder.BuildNotFoundTest(
@@ -135,6 +139,41 @@ public static class TestFileGenerator
 
         return supportedVerbs.Contains(endpoint.HttpVerb)
             && endpoint.Parameters.Any(p => p.IsFromRoute);
+    }
+
+    private static bool CanTrust400Scenario(ControllerInfo controller, EndpointInfo endpoint)
+    {
+        // 1. [ApiController] → auto 400 on invalid model
+        // 
+        if (controller.HasApiControllerAttribute)
+            return true;
+
+        // 2. Manual BadRequest() in the action body (detected by analyzer)
+        if (endpoint.ExpectedStatusCode == 400) 
+            return true;
+
+        // 3. otherwise , we can't be sure 400 is really a valid expectaion 
+        return false;
+    }
+
+    private static bool ShouldGenerate400Test(ControllerInfo controller, EndpointInfo endpoint)
+    {
+        // Only makes sense for write / model-binding verbs
+        var supportedVerbs = new[] { "HttpPost", "HttpPut", "HttpPatch" };
+
+        var hasBody = endpoint.Parameters.Any(p => p.IsFromBody);
+
+        if (!supportedVerbs.Contains(endpoint.HttpVerb) || !hasBody)
+            return false;
+
+        // If we can trust 400 (ApiController or manual BadRequest), generate it
+        if (CanTrust400Scenario(controller, endpoint))
+            return true;
+
+        // Otherwise, we might still generate but with a warning comment.
+        // For now, be conservative and still return true — BuildBadRequestTest
+        // will embed a note explaining the risk.
+        return true;
     }
 
     /// <summary>
@@ -278,6 +317,46 @@ public static class TestFileGenerator
         sb.AppendLine($"        var retrieved = await getResponse.Content.ReadFromJsonAsync<{getByIdEndpoint.ReturnType}>();");
         sb.AppendLine();
         sb.AppendLine("        Assert.NotNull(retrieved);");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+
+        return sb.ToString();
+    }
+
+    private static string BuildBadRequestTest(ControllerInfo controller, EndpointInfo endpoint, string url)
+    {
+        var sb = new StringBuilder();
+
+        var client = endpoint.HasAuthorize ? "_authClient" : "_client";
+
+        var verb = endpoint.HttpVerb switch
+        {
+            "HttpGet" => $@"await {client}.GetAsync(""{url}"");",
+            "HttpDelete" => $@"await {client}.DeleteAsync(""{url}"");",
+            "HttpPost" => $@"await {client}.PostAsJsonAsync(""{url}"", new {{ }});",
+            "HttpPut" => $@"await {client}.PutAsJsonAsync(""{url}"", new {{ }});",
+            "HttpPatch" => $@"await {client}.PatchAsJsonAsync(""{url}"", new {{ }});",
+            _ => $@"await {client}.PostAsJsonAsync(""{url}"", new {{ }});"
+        };
+
+        sb.AppendLine("    [Fact]");
+        sb.AppendLine($"    public async Task {endpoint.MethodName}_Returns400_WhenModelStateIsInvalid()");
+        sb.AppendLine("    {");
+
+        // If we cannot fully trust 400 (no [ApiController], no manual BadRequest),
+        // emit the explanatory comment from issue #64.
+        if (!CanTrust400Scenario(controller, endpoint))
+        {
+            sb.AppendLine("        // Note: this test requires [ApiController] on the controller");
+            sb.AppendLine("        // or a manual ModelState.IsValid check that returns BadRequest().");
+            sb.AppendLine("        // If this test fails with 200, add [ApiController] to your controller class.");
+            sb.AppendLine();
+        }
+
+        // For now, we just send an empty object as "invalid" payload.
+        // Later, we could generate truly invalid DTOs once validation metadata is available.
+        sb.AppendLine($"        var response = {verb}");
+        sb.AppendLine("        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);");
         sb.AppendLine("    }");
         sb.AppendLine();
 
