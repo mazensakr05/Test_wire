@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using TestWire.cli.Analysis;
 using TestWire.cli.Generation;
 using Xunit;
@@ -33,7 +33,8 @@ public class TestFileGeneratorTests
                     DtoProperties: new List<PropertyDetail>()
                 )
             },
-            ProducesResponses: new List<ProducesResponseDetail>()
+            ProducesResponses: new List<ProducesResponseDetail>(),
+            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail("Id", "int", "System.Int32") }
         );
 
         var endpoints = new List<EndpointInfo> { postEndpoint };
@@ -256,7 +257,8 @@ public class TestFileGeneratorTests
                     DtoProperties: new List<PropertyDetail>()
                 )
             },
-            ProducesResponses: new List<ProducesResponseDetail>()
+            ProducesResponses: new List<ProducesResponseDetail>(),
+            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail("Id", "int", "System.Int32") }
         );
 
         var getByIdEndpoint = new EndpointInfo(
@@ -386,7 +388,8 @@ public class TestFileGeneratorTests
             new ParameterDetail("dto", "CreateProductDto", "SampleApi.DTOs.CreateProductDto",
                 true, false, false, false, new())
             },
-            ProducesResponses: new List<ProducesResponseDetail>()
+            ProducesResponses: new List<ProducesResponseDetail>(),
+            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail("Id", "int", "System.Int32") }
         );
 
         var getByIdEndpoint = new EndpointInfo(
@@ -465,78 +468,7 @@ public class TestFileGeneratorTests
 
         result.Should().NotContain("ReadFromJsonAsync<>()");
     }
-    // ⚠ KNOWN BUG — tracked separately, not part of #41 scope
-    // ProjectAnalyzer.HasAttribute(param, "FromRoute") only detects explicit [FromRoute].
-    // ASP.NET Core also implicitly binds route params by name-matching the route template,
-    // even with no attribute. IsFromRoute is currently false in that case, so our pairing
-    // logic (and other features relying on IsFromRoute) will miss valid "get by id" endpoints.
-    [Fact(Skip = "Known analyzer bug — IsFromRoute doesn't detect implicit route binding. Tracked in separate issue.")]
-    public void Generate_ShouldIncludeCreateThenGetTest_EvenWhenFromRouteAttributeIsMissing()
-    {
-        // Arrange — GET has route "{id}" and param named "id", but NO [FromRoute] attribute
-        // This is valid ASP.NET Core implicit binding — IsFromRoute should be true, but today it's false
-        var postEndpoint = new EndpointInfo(
-            MethodName: "Create",
-            HttpVerb: "HttpPost",
-            Route: "",
-            ReturnType: "ProductDto",
-            ReturnTypeKind: ReturnTypeKind.ActionResultOfT,
-            HasAmbiguousReturnType: false,
-            IsAsync: true,
-            HasAuthorize: false,
-            HasAllowAnonymous: false,
-            ExpectedStatusCode: 201,
-            Parameters: new List<ParameterDetail>
-            {
-                new ParameterDetail(
-                    Name: "dto", Type: "CreateProductDto", FullyQualifiedType: "SampleApi.DTOs.CreateProductDto",
-                    IsFromBody: true, IsFromRoute: false, IsFromQuery: false, IsFromHeader: false,
-                    DtoProperties: new List<PropertyDetail>()
-                )
-            },
-            ProducesResponses: new List<ProducesResponseDetail>()
-        );
-
-        var getByIdEndpoint = new EndpointInfo(
-            MethodName: "GetById",
-            HttpVerb: "HttpGet",
-            Route: "{id}",
-            ReturnType: "ProductDto",
-            ReturnTypeKind: ReturnTypeKind.ActionResultOfT,
-            HasAmbiguousReturnType: false,
-            IsAsync: true,
-            HasAuthorize: false,
-            HasAllowAnonymous: false,
-            ExpectedStatusCode: 200,
-            Parameters: new List<ParameterDetail>
-            {
-                new ParameterDetail(
-                    Name: "id", Type: "int", FullyQualifiedType: "System.Int32",
-                    IsFromBody: false,
-                    IsFromRoute: false, // <-- bug: should be true, ASP.NET binds this implicitly
-                    IsFromQuery: false, IsFromHeader: false,
-                    DtoProperties: new List<PropertyDetail>()
-                )
-            },
-            ProducesResponses: new List<ProducesResponseDetail>()
-        );
-
-        var controller = new ControllerInfo(
-            ClassName: "ProductsController",
-            Namespace: "SampleApi.Controllers",
-            BaseRoute: "api/[controller]",
-            Endpoints: new List<EndpointInfo> { postEndpoint, getByIdEndpoint },
-            Dependencies: new List<ConstructorDependency>()
-        );
-
-        var context = BuildContext();
-
-        // Act
-        var result = TestFileGenerator.Generate(controller, context);
-
-        // Assert — this SHOULD pass once the analyzer bug is fixed
-        result.Should().Contain("CreateThenGet_ReturnsCreatedResource");
-    }
+   
 
     // ⚠ KNOWN LIMITATION — tracked separately, not part of #41 scope
     // When a controller has multiple valid POST/GET-by-id pairs (e.g. two resources
@@ -604,14 +536,7 @@ public class TestFileGeneratorTests
         result.Should().Contain("CreateThenGet_Category_ReturnsCreatedResource");
     }
 
-    // ⚠ KNOWN LIMITATION — tracked separately, not part of #41 scope
-    // BuildCreateThenReadTest currently hardcodes "created.Id" when building the
-    // follow-up GET url. This assumes the POST's return DTO has a property
-    // literally named "Id". If the real DTO uses a different name (e.g. "ProductId",
-    // "Guid", "Key") or has no such property, the generated test will not compile.
-    // TestFileGenerator has no visibility into response DTO shape today — EndpointInfo
-    // only tracks ReturnType as a string, not its properties.
-    [Fact(Skip = "Known limitation — generator assumes response DTO has an 'Id' property. Tracked in separate backlog issue.")]
+    [Fact]
     public void Generate_CreateThenGetTest_UsesCorrectIdPropertyName_EvenWhenNotLiterallyNamedId()
     {
         // Arrange — POST returns ProductDto, but its actual "id" property is named "ProductId", not "Id"
@@ -634,7 +559,11 @@ public class TestFileGeneratorTests
                 DtoProperties: new List<PropertyDetail>()
             )
             },
-            ProducesResponses: new List<ProducesResponseDetail>()
+            ProducesResponses: new List<ProducesResponseDetail>(),
+            ReturnTypeProperties: new List<PropertyDetail>
+            {
+                new PropertyDetail("ProductId", "int", "System.Int32")
+            }
         );
 
         var getByIdEndpoint = new EndpointInfo(
@@ -676,5 +605,68 @@ public class TestFileGeneratorTests
         // property name (e.g. "ProductId") instead of hardcoding "created.Id"
         result.Should().Contain("created.ProductId");
         result.Should().NotContain("created.Id)");
+    }
+
+    [Theory]
+    [InlineData("Sku")]
+    [InlineData("Guid")]
+    [InlineData("Key")]
+    public void Generate_CreateThenGetTest_UsesConfiguredIdentifierNames(string propertyName)
+    {
+        var postEndpoint = new EndpointInfo(
+            MethodName: "Create", HttpVerb: "HttpPost", Route: "",
+            ReturnType: "ProductDto", ReturnTypeKind: ReturnTypeKind.ActionResultOfT,
+            HasAmbiguousReturnType: false, IsAsync: true,
+            HasAuthorize: false, HasAllowAnonymous: false,
+            ExpectedStatusCode: 201,
+            Parameters: new List<ParameterDetail>(),
+            ProducesResponses: new List<ProducesResponseDetail>(),
+            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail(propertyName, "string", "System.String") }
+        );
+
+        var getByIdEndpoint = new EndpointInfo(
+            MethodName: "GetById", HttpVerb: "HttpGet", Route: "{id}",
+            ReturnType: "ProductDto", ReturnTypeKind: ReturnTypeKind.ActionResultOfT,
+            HasAmbiguousReturnType: false, IsAsync: true,
+            HasAuthorize: false, HasAllowAnonymous: false,
+            ExpectedStatusCode: 200,
+            Parameters: new List<ParameterDetail> { new ParameterDetail("id", "string", "System.String", false, true, false, false, new()) },
+            ProducesResponses: new List<ProducesResponseDetail>()
+        );
+
+        var controller = new ControllerInfo("ProductsController", "SampleApi.Controllers", "api/[controller]", new List<EndpointInfo> { postEndpoint, getByIdEndpoint }, new());
+        var result = TestFileGenerator.Generate(controller, BuildContext());
+
+        result.Should().Contain($"created.{propertyName}");
+    }
+
+    [Fact]
+    public void Generate_DoesNotIncludeCreateThenGetTest_WhenNoIdPropertyExists()
+    {
+        var postEndpoint = new EndpointInfo(
+            MethodName: "Create", HttpVerb: "HttpPost", Route: "",
+            ReturnType: "ProductDto", ReturnTypeKind: ReturnTypeKind.ActionResultOfT,
+            HasAmbiguousReturnType: false, IsAsync: true,
+            HasAuthorize: false, HasAllowAnonymous: false,
+            ExpectedStatusCode: 201,
+            Parameters: new List<ParameterDetail>(),
+            ProducesResponses: new List<ProducesResponseDetail>(),
+            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail("SomeOtherProperty", "int", "System.Int32") }
+        );
+
+        var getByIdEndpoint = new EndpointInfo(
+            MethodName: "GetById", HttpVerb: "HttpGet", Route: "{id}",
+            ReturnType: "ProductDto", ReturnTypeKind: ReturnTypeKind.ActionResultOfT,
+            HasAmbiguousReturnType: false, IsAsync: true,
+            HasAuthorize: false, HasAllowAnonymous: false,
+            ExpectedStatusCode: 200,
+            Parameters: new List<ParameterDetail> { new ParameterDetail("id", "int", "System.Int32", false, true, false, false, new()) },
+            ProducesResponses: new List<ProducesResponseDetail>()
+        );
+
+        var controller = new ControllerInfo("ProductsController", "SampleApi.Controllers", "api/[controller]", new List<EndpointInfo> { postEndpoint, getByIdEndpoint }, new());
+        var result = TestFileGenerator.Generate(controller, BuildContext());
+
+        result.Should().NotContain("CreateThenGet_ReturnsCreatedResource");
     }
 }

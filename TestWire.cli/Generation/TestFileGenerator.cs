@@ -86,7 +86,15 @@ public static class TestFileGenerator
             && getByIdEndpoint is not null
             && !string.IsNullOrWhiteSpace(postEndpoint.ReturnType))
         {
-            sb.Append(BuildCreateThenReadTest(postEndpoint, getByIdEndpoint, controller));
+            var idPropertyName = ResolveIdPropertyName(postEndpoint.ReturnTypeProperties);
+
+            // TODO: If idPropertyName is null, the CLI could later ask the user interactively:
+            // "What is the identifier property name for {postEndpoint.ReturnType}?"
+            // and pass that override into the generator.
+            if (idPropertyName is not null)
+            {
+                sb.Append(BuildCreateThenReadTest(postEndpoint, getByIdEndpoint, controller, idPropertyName));
+            }
         }
 
         sb.AppendLine("}");
@@ -201,12 +209,34 @@ public static class TestFileGenerator
         var ns = clean.Substring(0, lastDot);
         namespaces.Add(ns);
     }
+    private static readonly string[] _identifierCandidates = new[]
+    {
+        "Id", "Sku", "Guid", "Uid", "Key", "Code", "ReferenceId", "ExternalId", "Slug"
+    };
 
+    private static string? ResolveIdPropertyName(List<PropertyDetail>? returnTypeProperties)
+    {
+        if (returnTypeProperties is null || returnTypeProperties.Count == 0)
+            return null;
+
+        foreach (var candidate in _identifierCandidates)
+        {
+            var exactMatch = returnTypeProperties.FirstOrDefault(p =>
+                string.Equals(p.Name, candidate, StringComparison.OrdinalIgnoreCase));
+            if (exactMatch is not null) return exactMatch.Name;
+        }
+
+        var suffixMatch = returnTypeProperties.FirstOrDefault(p =>
+            p.Name.EndsWith("Id", StringComparison.OrdinalIgnoreCase));
+
+        return null;
+    }
 
     private static string BuildCreateThenReadTest(
     EndpointInfo postEndpoint,
     EndpointInfo getByIdEndpoint,
-    ControllerInfo controller)
+    ControllerInfo controller,
+    string idPropertyName)
     {
         var sb = new StringBuilder();
         var client = (postEndpoint.HasAuthorize || getByIdEndpoint.HasAuthorize) ? "_authClient" : "_client";
@@ -243,8 +273,7 @@ public static class TestFileGenerator
         var baseGetRoute = controller.BaseRoute.Replace("[controller]",
             controller.ClassName.Replace("Controller", "").ToLowerInvariant());
 
-
-        sb.AppendLine($"        var getResponse = await {client}.GetAsync($\"{baseGetRoute}/{{created.Id}}\");");
+        sb.AppendLine($"        var getResponse = await {client}.GetAsync($\"{baseGetRoute}/{{created.{idPropertyName}}}\");");
         sb.AppendLine("        getResponse.EnsureSuccessStatusCode();");
         sb.AppendLine($"        var retrieved = await getResponse.Content.ReadFromJsonAsync<{getByIdEndpoint.ReturnType}>();");
         sb.AppendLine();

@@ -21,7 +21,8 @@ public sealed record EndpointInfo(
     bool HasAllowAnonymous,
     int ExpectedStatusCode,
     List<ParameterDetail> Parameters,
-    List<ProducesResponseDetail> ProducesResponses
+    List<ProducesResponseDetail> ProducesResponses,
+    List<PropertyDetail>? ReturnTypeProperties = null
 );
 
 public sealed record ParameterDetail(
