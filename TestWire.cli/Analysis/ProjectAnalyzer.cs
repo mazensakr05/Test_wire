@@ -177,7 +177,7 @@ public class ProjectAnalyzer
                             typeDisplay.Type,
                             typeDisplay.FullyQualifiedType,
                             HasAttribute(param, "FromBody"),
-                            HasAttribute(param, "FromRoute") || IsImplicitRouteParam(methodRoute,param.Name),
+                            HasAttribute(param, "FromRoute") || (!HasAttribute(param, "FromBody") && !HasAttribute(param, "FromQuery") && !HasAttribute(param, "FromHeader") && IsImplicitRouteParam(methodRoute, param.Name)),
                             HasAttribute(param, "FromQuery"),
                             HasAttribute(param, "FromHeader"),
                             dtoProperties
@@ -567,10 +567,7 @@ public class ProjectAnalyzer
         {
             // Strip constraint suffix — "id:int" → "id", "id:guid" → "id"
             var placeholder = match.Groups[1].Value;
-            var colonIndex = placeholder.IndexOf(':');
-            var cleanName = colonIndex >= 0
-                ? placeholder.Substring(0, colonIndex)
-                : placeholder;
+            var cleanName = placeholder.Split(':', 2)[0].Split('=', 2)[0].TrimEnd('?').TrimStart('*');
 
             if (string.Equals(cleanName, parameterName, StringComparison.OrdinalIgnoreCase))
                 return true;

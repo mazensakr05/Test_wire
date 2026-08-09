@@ -227,8 +227,7 @@ public static class TestFileGenerator
         }
 
         var suffixMatch = returnTypeProperties.FirstOrDefault(p =>
-            p.Name.EndsWith("Id", StringComparison.Ordinal));
-        if (suffixMatch is not null) return suffixMatch.Name;
+            p.Name.EndsWith("Id", StringComparison.OrdinalIgnoreCase));
 
         return null;
     }
