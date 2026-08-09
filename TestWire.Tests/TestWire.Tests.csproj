@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -24,6 +24,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TestWire.cli\TestWire.cli.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Remove="Fixtures\**\*" />
   </ItemGroup>
 
 </Project>

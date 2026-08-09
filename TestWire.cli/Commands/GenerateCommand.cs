@@ -3,6 +3,7 @@ using System.CommandLine.Invocation;
 using System.Xml.Linq;
 using TestWire.cli.Analysis;
 using TestWire.cli.Generation;
+using TestWire.cli.Verification;
 
 namespace TestWire.cli.Commands;
 
@@ -32,11 +33,17 @@ public class GenerateCommand : Command
             name: "--overwrite",
             description: "Overwrite existing test files");
 
+        var noVerifyOption = new Option<bool>(
+            name: "--no-verify",
+            description: "Skip verification of generated test files");
+
         AddOption(projectOption);
         AddOption(outputOption);
         AddOption(dryRunOption);
         AddOption(frameworkOption);
         AddOption(overwriteOption);
+        AddOption(noVerifyOption);
+
 
         this.SetHandler(async (InvocationContext cliContext) =>
         {
@@ -45,6 +52,7 @@ public class GenerateCommand : Command
             var dryRun = cliContext.ParseResult.GetValueForOption(dryRunOption);
             var framework = cliContext.ParseResult.GetValueForOption(frameworkOption);
             var overwrite = cliContext.ParseResult.GetValueForOption(overwriteOption);
+            var noVerify = cliContext.ParseResult.GetValueForOption(noVerifyOption);
 
             Console.WriteLine($"Analyzing {project.FullName}...");
 
@@ -111,6 +119,24 @@ public class GenerateCommand : Command
 
                     foreach (var endpoint in controller.Endpoints)
                         Console.WriteLine($"    [{endpoint.HttpVerb}] {endpoint.MethodName} → {endpoint.Route}");
+                }
+
+                if (!noVerify)
+                {
+                    Console.WriteLine("\nVerifying generated tests compile...");
+                    var (success, buildOutput) = BuildVerifier.Verify(outputDir);
+
+                    if (success)
+                    {
+                        Console.WriteLine("✔ Build verified — generated tests compile");
+                    }
+                    else
+                    {
+                        Console.WriteLine("✗ Build verification failed. Compiler errors:\n");
+                        Console.WriteLine(buildOutput);
+                        cliContext.ExitCode = 1;
+                        return;
+                    }
                 }
             }
         });
