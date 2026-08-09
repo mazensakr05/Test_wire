@@ -1,29 +1,42 @@
 using System.Diagnostics;
+using System.Text;
 
 namespace TestWire.cli.Verification;
 
 public static class BuildVerifier
 {
-    public static (bool Success, string Output) Verify(string testProjectDirectory)
+    public static (bool Success, string Output) Verify(string testProjectDir, int timeoutMs = 60000)
     {
-        var psi = new ProcessStartInfo("dotnet", "build")
+        var psi = new ProcessStartInfo
         {
-            WorkingDirectory = testProjectDirectory,
+            FileName = "dotnet",
+            Arguments = "build",
+            WorkingDirectory = testProjectDir,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
 
-        using var process = Process.Start(psi);
-        if (process == null)
-            return (false, "Could not start dotnet build process.");
+        using var process = new Process { StartInfo = psi };
+        var stdOutBuilder = new StringBuilder();
+        var stdErrBuilder = new StringBuilder();
 
-        string stdOut = process.StandardOutput.ReadToEnd();
-        string stdErr = process.StandardError.ReadToEnd();
-        process.WaitForExit();
+        process.OutputDataReceived += (_, e) => { if (e.Data != null) stdOutBuilder.AppendLine(e.Data); };
+        process.ErrorDataReceived += (_, e) => { if (e.Data != null) stdErrBuilder.AppendLine(e.Data); };
 
-        var combinedOutput = stdOut + Environment.NewLine + stdErr;
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        bool exited = process.WaitForExit(timeoutMs);
+        if (!exited)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { }
+            return (false, $"Build verification timed out after {timeoutMs}ms and was killed.");
+        }
+
+        var combinedOutput = stdOutBuilder.ToString() + Environment.NewLine + stdErrBuilder.ToString();
         return (process.ExitCode == 0, combinedOutput);
     }
 }

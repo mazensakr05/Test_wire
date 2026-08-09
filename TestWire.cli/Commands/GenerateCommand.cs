@@ -134,7 +134,8 @@ public class GenerateCommand : Command
                     {
                         Console.WriteLine("✗ Build verification failed. Compiler errors:\n");
                         Console.WriteLine(buildOutput);
-                        Environment.Exit(1);
+                        cliContext.ExitCode = 1;
+                        return;
                     }
                 }
             }
