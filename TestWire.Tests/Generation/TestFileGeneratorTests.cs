@@ -34,7 +34,7 @@ public class TestFileGeneratorTests
                 )
             },
             ProducesResponses: new List<ProducesResponseDetail>(),
-            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail("Id", "int", "System.Int32") }
+            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail("Id", "int", "System.Int32", Array.Empty<ValidationAttributeInfo>()) }
         );
 
         var endpoints = new List<EndpointInfo> { postEndpoint };
@@ -264,7 +264,7 @@ public class TestFileGeneratorTests
                 )
             },
             ProducesResponses: new List<ProducesResponseDetail>(),
-            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail("Id", "int", "System.Int32") }
+            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail("Id", "int", "System.Int32", Array.Empty<ValidationAttributeInfo>()) }
         );
 
         var getByIdEndpoint = new EndpointInfo(
@@ -399,7 +399,7 @@ public class TestFileGeneratorTests
                 true, false, false, false, new())
             },
             ProducesResponses: new List<ProducesResponseDetail>(),
-            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail("Id", "int", "System.Int32") }
+            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail("Id", "int", "System.Int32", Array.Empty<ValidationAttributeInfo>()) }
         );
 
         var getByIdEndpoint = new EndpointInfo(
@@ -578,7 +578,7 @@ public class TestFileGeneratorTests
             ProducesResponses: new List<ProducesResponseDetail>(),
             ReturnTypeProperties: new List<PropertyDetail>
             {
-                new PropertyDetail("ProductId", "int", "System.Int32")
+                new PropertyDetail("ProductId", "int", "System.Int32", Array.Empty<ValidationAttributeInfo>())
             }
         );
 
@@ -639,7 +639,7 @@ public class TestFileGeneratorTests
             ExpectedStatusCode: 201,
             Parameters: new List<ParameterDetail>(),
             ProducesResponses: new List<ProducesResponseDetail>(),
-            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail(propertyName, "string", "System.String") }
+            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail(propertyName, "string", "System.String", Array.Empty<ValidationAttributeInfo>()) }
         );
 
         var getByIdEndpoint = new EndpointInfo(
@@ -669,7 +669,7 @@ public class TestFileGeneratorTests
             ExpectedStatusCode: 201,
             Parameters: new List<ParameterDetail>(),
             ProducesResponses: new List<ProducesResponseDetail>(),
-            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail("SomeOtherProperty", "int", "System.Int32") }
+            ReturnTypeProperties: new List<PropertyDetail> { new PropertyDetail("SomeOtherProperty", "int", "System.Int32", Array.Empty<ValidationAttributeInfo>()) }
         );
 
         var getByIdEndpoint = new EndpointInfo(

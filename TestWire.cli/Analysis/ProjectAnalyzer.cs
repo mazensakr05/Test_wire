@@ -52,7 +52,7 @@ public class ProjectAnalyzer
 
             foreach (var classDecl in classDeclarations)
             {
-                // Cross from syntax → symbol — now we have full compiler knowledge
+                // Cross from syntax to symbol — now we have full compiler knowledge
                 var classSymbol = semanticModel.GetDeclaredSymbol(classDecl) as INamedTypeSymbol;
                 if (classSymbol == null) continue;
 
@@ -219,26 +219,63 @@ public class ProjectAnalyzer
 
         foreach (var member in typeSymbol.GetMembers().OfType<IPropertySymbol>())
         {
-            // Fix: skip indexers and get-only properties — the generator writes object
-            // initializers, so any property without a public setter produces uncompilable tests
+            // Fix: skip indexers and get-only properties — unchanged
             if (member.IsIndexer) continue;
 
             var setMethod = member.SetMethod;
-            if (member.DeclaredAccessibility == Accessibility.Public
-                && !member.IsStatic
-                && setMethod is not null
-                && setMethod.DeclaredAccessibility == Accessibility.Public)
+            if (member.DeclaredAccessibility != Accessibility.Public
+                || member.IsStatic
+                || setMethod is null
+                || setMethod.DeclaredAccessibility != Accessibility.Public)
             {
-                var typeDisplay = GetTypeDisplayInfo(member.Type);
-                list.Add(new PropertyDetail(
-                    member.Name,
-                    typeDisplay.Type,
-                    typeDisplay.FullyQualifiedType
-                ));
+                continue;
             }
+
+            var typeDisplay = GetTypeDisplayInfo(member.Type);
+
+            var validationAttributes = ReadValidationAttributes(member);
+
+            list.Add(new PropertyDetail(
+                member.Name,
+                typeDisplay.Type,
+                typeDisplay.FullyQualifiedType,
+                validationAttributes
+            ));
         }
 
         return list;
+    }
+
+    internal static IReadOnlyList<ValidationAttributeInfo> ReadValidationAttributes(IPropertySymbol property)
+    {
+        var result = new List<ValidationAttributeInfo>();
+
+        foreach (var attr in property.GetAttributes())
+        {
+            var name = attr.AttributeClass?.Name;
+            if (name is null) continue;
+
+            // Strip "Attribute" suffix: RequiredAttribute -> Required
+            var cleanName = name.EndsWith("Attribute", StringComparison.Ordinal)
+                ? name[..^9]
+                : name;
+
+            // Only pick core validation attributes for now
+            if (cleanName is not ("Required" or "Range" or "MaxLength" or "MinLength"))
+                continue;
+
+            var args = new List<string>();
+
+            foreach (var arg in attr.ConstructorArguments)
+            {
+                if (arg.Value is null) continue;
+                args.Add(arg.Value.ToString() ?? string.Empty);
+            }
+
+            result.Add(new ValidationAttributeInfo(cleanName, args));
+        }
+
+        return result;
     }
 
     private static List<ConstructorDependency> GetConstructorDependencies(INamedTypeSymbol classSymbol)

@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using TestWire.cli.Analysis;
@@ -14,7 +14,9 @@ public class ProjectAnalyzerTests
         var references = new[]
         {
             MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location)
+            MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
+            MetadataReference.CreateFromFile(System.Reflection.Assembly.Load("System.Runtime").Location),
+            MetadataReference.CreateFromFile(typeof(System.ComponentModel.DataAnnotations.RequiredAttribute).Assembly.Location)
         };
 
         return CSharpCompilation.Create("TestCompilation",
@@ -196,5 +198,49 @@ public class ProjectAnalyzerTests
 
         ProjectAnalyzer.IsImplicitRouteParam(routeTemplate, "id").Should().BeTrue();
         ProjectAnalyzer.IsImplicitRouteParam(routeTemplate, "reviewId").Should().BeTrue();
+    }
+
+    [Fact]
+    public void ReadDtoProperties_PicksUpValidationAttributes()
+    {
+        var source = @"
+        using System.ComponentModel.DataAnnotations;
+
+        public class SampleDto
+        {
+            [Required]
+            [MaxLength(50)]
+            public string Name { get; set; }
+
+            [Range(1, 10)]
+            public int Age { get; set; }
+        }";
+
+        var compilation = CreateCompilation(source);
+        var syntaxTree = compilation.SyntaxTrees.First();
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+
+        var classDeclaration = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax>()
+            .First(c => c.Identifier.Text == "SampleDto");
+
+        var classSymbol = semanticModel.GetDeclaredSymbol(classDeclaration) as INamedTypeSymbol;
+        classSymbol.Should().NotBeNull();
+
+        var diagnostics = compilation.GetDiagnostics();
+        if (diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
+        {
+            throw new Exception(string.Join("\n", diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)));
+        }
+
+        var properties = ProjectAnalyzer.ReadDtoProperties(classSymbol!);
+
+        var nameProp = properties.Should().ContainSingle(p => p.Name == "Name").Subject;
+        nameProp.ValidationAttributes.Should().Contain(a => a.Name == "Required");
+        nameProp.ValidationAttributes.Should().Contain(a => a.Name == "MaxLength" && a.Arguments.Contains("50"));
+
+        var ageProp = properties.Should().ContainSingle(p => p.Name == "Age").Subject;
+        ageProp.ValidationAttributes.Should().Contain(a => a.Name == "Range" && a.Arguments.Contains("1") && a.Arguments.Contains("10"));
     }
 }
