@@ -77,7 +77,8 @@ public class TestFileGeneratorTests
             BaseRoute: "api/[controller]",
             Endpoints: endpoints,
             Dependencies: new List<ConstructorDependency>(),
-            false
+                HasApiControllerAttribute: false
+
         );
     }
 
@@ -159,7 +160,8 @@ public class TestFileGeneratorTests
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { getByIdEndpoint },
             Dependencies: new List<ConstructorDependency>(),
-            false
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -225,7 +227,8 @@ public class TestFileGeneratorTests
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { postEndpoint, getByIdEndpoint },
             Dependencies: new List<ConstructorDependency>(),
-            false
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -292,7 +295,8 @@ public class TestFileGeneratorTests
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { postEndpoint, getByIdEndpoint },
             Dependencies: new List<ConstructorDependency>(),
-            false
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -366,7 +370,8 @@ public class TestFileGeneratorTests
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { postEndpoint, getReviewEndpoint },
             Dependencies: new List<ConstructorDependency>(),
-            false
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -415,7 +420,8 @@ public class TestFileGeneratorTests
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { postEndpoint, getByIdEndpoint },
             Dependencies: new List<ConstructorDependency>(),
-            false
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -466,7 +472,8 @@ public class TestFileGeneratorTests
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { postEndpoint, getByIdEndpoint },
             Dependencies: new List<ConstructorDependency>(),
-            false
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -531,7 +538,8 @@ public class TestFileGeneratorTests
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { createProduct, getProduct, createCategory, getCategory },
             Dependencies: new List<ConstructorDependency>(),
-            false
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -602,7 +610,8 @@ public class TestFileGeneratorTests
             BaseRoute: "api/[controller]",
             Endpoints: new List<EndpointInfo> { postEndpoint, getByIdEndpoint },
             Dependencies: new List<ConstructorDependency>(),
-            false
+                HasApiControllerAttribute: false
+
         );
 
         var context = BuildContext();
@@ -643,7 +652,7 @@ public class TestFileGeneratorTests
             ProducesResponses: new List<ProducesResponseDetail>()
         );
 
-        var controller = new ControllerInfo("ProductsController", "SampleApi.Controllers", "api/[controller]", new List<EndpointInfo> { postEndpoint, getByIdEndpoint }, new(),false);
+        var controller = new ControllerInfo("ProductsController", "SampleApi.Controllers", "api/[controller]", new List<EndpointInfo> { postEndpoint, getByIdEndpoint }, new(),HasApiControllerAttribute:false);
         var result = TestFileGenerator.Generate(controller, BuildContext());
 
         result.Should().Contain($"created.{propertyName}");
@@ -673,7 +682,7 @@ public class TestFileGeneratorTests
             ProducesResponses: new List<ProducesResponseDetail>()
         );
 
-        var controller = new ControllerInfo("ProductsController", "SampleApi.Controllers", "api/[controller]", new List<EndpointInfo> { postEndpoint, getByIdEndpoint }, new(), false);
+        var controller = new ControllerInfo("ProductsController", "SampleApi.Controllers", "api/[controller]", new List<EndpointInfo> { postEndpoint, getByIdEndpoint }, new(), HasApiControllerAttribute: false);
         var result = TestFileGenerator.Generate(controller, BuildContext());
 
         result.Should().NotContain("CreateThenGet_ReturnsCreatedResource");
