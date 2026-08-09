@@ -219,7 +219,7 @@ public class ProjectAnalyzer
 
         foreach (var member in typeSymbol.GetMembers().OfType<IPropertySymbol>())
         {
-            // Fix: skip indexers and get-only properties — unchanged
+            // Skip indexers, non-public/static properties, and properties without a public setter — generator uses object initializers.
             if (member.IsIndexer) continue;
 
             var setMethod = member.SetMethod;
