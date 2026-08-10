@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Mvc.Testing;
 using SampleApi;
+using SampleApi.DTOs;
 
 namespace SampleApi.Tests;
 
@@ -39,6 +40,13 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
+    public async Task Get_Returns404_WhenNotFound()
+    {
+        var response = await _client.GetAsync("api/categories/99999");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Post_Returns201_WithSampleApi_DTOs_CategoryDto()
     {
         var request = new SampleApi.DTOs.CreateCategoryDto
@@ -51,6 +59,33 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<SampleApi.DTOs.CategoryDto>();
         Assert.NotNull(result);
+    }
+
+    [Fact]
+    public async Task Post_Returns400_WhenRequestIsInvalid()
+    {
+        var response = await _client.PostAsJsonAsync("api/categories", new { });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateThenGet_ReturnsCreatedResource()
+    {
+        var request = new SampleApi.DTOs.CreateCategoryDto
+        {
+            Name = "test",
+            Description = null,
+        };
+
+        var createResponse = await _client.PostAsJsonAsync("api/categories", request);
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<SampleApi.DTOs.CategoryDto>();
+
+        var getResponse = await _client.GetAsync($"api/categories/{created.Id}");
+        getResponse.EnsureSuccessStatusCode();
+        var retrieved = await getResponse.Content.ReadFromJsonAsync<SampleApi.DTOs.CategoryDto>();
+
+        Assert.NotNull(retrieved);
     }
 
 }

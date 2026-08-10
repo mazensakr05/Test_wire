@@ -1,4 +1,4 @@
-﻿using Xunit;
+using Xunit;
 using System.Net;
 using System.Net.Http.Json;
 using System.Net.Http.Headers;
@@ -62,7 +62,7 @@ public class CategoriesControllerTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
-    public async Task Post_Returns400_WhenModelStateIsInvalid()
+    public async Task Post_Returns400_WhenRequestIsInvalid()
     {
         var response = await _client.PostAsJsonAsync("api/categories", new { });
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);

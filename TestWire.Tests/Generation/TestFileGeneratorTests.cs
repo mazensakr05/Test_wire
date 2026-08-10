@@ -718,7 +718,7 @@ public class TestFileGeneratorTests
         var result = TestFileGenerator.Generate(controller, context);
 
         // Assert
-        result.Should().Contain("public async Task Create_Returns400_WhenModelStateIsInvalid()");
+        result.Should().Contain("public async Task Create_Returns400_WhenRequestIsInvalid()");
         result.Should().Contain("Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);");
         result.Should().NotContain("Note: this test requires [ApiController]");
     }
@@ -753,7 +753,7 @@ public class TestFileGeneratorTests
         var result = TestFileGenerator.Generate(controller, context);
 
         // Assert
-        result.Should().Contain("public async Task Create_Returns400_WhenModelStateIsInvalid()");
+        result.Should().Contain("public async Task Create_Returns400_WhenRequestIsInvalid()");
         result.Should().Contain("Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);");
         result.Should().NotContain("Note: this test requires [ApiController]");
     }
@@ -788,7 +788,7 @@ public class TestFileGeneratorTests
         var result = TestFileGenerator.Generate(controller, context);
 
         // Assert
-        result.Should().Contain("public async Task Create_Returns400_WhenModelStateIsInvalid()");
+        result.Should().Contain("public async Task Create_Returns400_WhenRequestIsInvalid()");
         result.Should().Contain("Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);");
         result.Should().Contain("Note: this test requires [ApiController]");
         result.Should().Contain("If this test fails with 200, add [ApiController] to your controller class.");
