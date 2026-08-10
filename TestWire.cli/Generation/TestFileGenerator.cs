@@ -340,7 +340,7 @@ public static class TestFileGenerator
         };
 
         sb.AppendLine("    [Fact]");
-        sb.AppendLine($"    public async Task {endpoint.MethodName}_Returns400_WhenModelStateIsInvalid()");
+        sb.AppendLine($"    public async Task {endpoint.MethodName}_Returns400_WhenRequestIsInvalid()");
         sb.AppendLine("    {");
 
         // If we cannot fully trust 400 (no [ApiController], no manual BadRequest),
