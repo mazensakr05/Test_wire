@@ -1,4 +1,4 @@
-﻿using Xunit;
+using Xunit;
 using System.Net;
 using System.Net.Http.Json;
 using System.Net.Http.Headers;
@@ -87,7 +87,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
-    public async Task Create_Returns400_WhenModelStateIsInvalid()
+    public async Task Create_Returns400_WhenRequestIsInvalid()
     {
         var response = await _authClient.PostAsJsonAsync("api/products", new { });
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -116,7 +116,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
-    public async Task Update_Returns400_WhenModelStateIsInvalid()
+    public async Task Update_Returns400_WhenRequestIsInvalid()
     {
         var response = await _authClient.PutAsJsonAsync("api/products/1", new { });
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
